@@ -1,0 +1,45 @@
+<%- include('layout/header') %>
+
+<section class="page-header">
+  <div class="container">
+    <h1><i class="fas fa-th-large"></i> Nos specialites</h1>
+    <p>Explorez les travaux pratiques par domaine</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <% if (categories.length > 0) { %>
+      <div class="categories-grid">
+        <% categories.forEach(cat => { %>
+          <a href="/category/<%= cat.id %>" class="category-card">
+            <div class="category-card-img">
+              <% if (cat.image) { %>
+                <img src="/uploads/images/<%= cat.image %>" alt="<%= cat.name %>">
+              <% } else { %>
+                <div class="category-card-placeholder">
+                  <i class="fas fa-graduation-cap"></i>
+                </div>
+              <% } %>
+              <span class="category-card-count"><%= cat.video_count %> video<%= cat.video_count > 1 ? 's' : '' %></span>
+            </div>
+            <div class="category-card-body">
+              <h3><%= cat.name %></h3>
+              <% if (cat.description) { %>
+                <p><%= cat.description %></p>
+              <% } %>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <div style="text-align: center; padding: 60px 0;">
+        <i class="fas fa-folder-open" style="font-size: 4rem; color: #ccc;"></i>
+        <h3 style="margin-top: 20px;">Aucune specialite pour le moment</h3>
+        <p style="color: #666;">Les specialites seront bientot ajoutees.</p>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include('layout/footer') %>

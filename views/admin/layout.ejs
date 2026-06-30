@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - <%= settings.site_name %></title>
+  <link rel="icon" href="/images/logo.jpeg" type="image/jpeg">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="admin-body">
+  <div class="admin-wrapper">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="/images/logo.jpeg" alt="Logo" class="sidebar-logo">
+        <h3><%= settings.site_name %></h3>
+        <span>Administration</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/admin" class="<%= currentPath === '/admin' ? 'active' : '' %>">
+          <i class="fas fa-tachometer-alt"></i> Tableau de bord
+        </a>
+        <a href="/admin/categories" class="<%= currentPath.includes('/admin/categories') ? 'active' : '' %>">
+          <i class="fas fa-folder"></i> Specialites
+        </a>
+        <a href="/admin/roadmap" class="<%= currentPath.includes('/admin/roadmap') ? 'active' : '' %>">
+          <i class="fas fa-route"></i> Roadmaps
+        </a>
+        <a href="/admin/debouches" class="<%= currentPath.includes('/admin/debouches') ? 'active' : '' %>">
+          <i class="fas fa-briefcase"></i> Debouches
+        </a>
+        <a href="/admin/certifications" class="<%= currentPath.includes('/admin/certifications') ? 'active' : '' %>">
+          <i class="fas fa-certificate"></i> Certifications
+        </a>
+        <a href="/admin/videos" class="<%= currentPath.includes('/admin/videos') ? 'active' : '' %>">
+          <i class="fas fa-video"></i> Videos (TP)
+        </a>
+        <a href="/admin/hero" class="<%= currentPath.includes('/admin/hero') ? 'active' : '' %>">
+          <i class="fas fa-images"></i> Media accueil
+        </a>
+        <a href="/admin/settings" class="<%= currentPath.includes('/admin/settings') ? 'active' : '' %>">
+          <i class="fas fa-cog"></i> Parametres
+        </a>
+        <div class="sidebar-divider"></div>
+        <a href="/" target="_blank">
+          <i class="fas fa-external-link-alt"></i> Voir le site
+        </a>
+        <a href="/admin/logout" class="sidebar-logout">
+          <i class="fas fa-sign-out-alt"></i> Deconnexion
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main content -->
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('active')">
+          <i class="fas fa-bars"></i>
+        </button>
+        <span>Bienvenue, Administrateur</span>
+      </div>
+
+      <div class="admin-content">
+        <% if (success.length > 0) { %>
+          <div class="alert alert-success"><i class="fas fa-check-circle"></i> <%= success %></div>
+        <% } %>
+        <% if (error.length > 0) { %>
+          <div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> <%= error %></div>
+        <% } %>

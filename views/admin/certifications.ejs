@@ -1,0 +1,164 @@
+<%- include('layout') %>
+
+<div class="admin-header">
+  <h1><i class="fas fa-certificate"></i> Gestion des certifications</h1>
+  <button class="btn btn-primary" onclick="document.getElementById('addModal').style.display='flex'"
+    <% if (categories.length === 0) { %>disabled<% } %>>
+    <i class="fas fa-plus"></i> Ajouter
+  </button>
+</div>
+
+<div class="admin-card">
+  <% if (certifications.length > 0) { %>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Image</th>
+        <th>Titre</th>
+        <th>Fournisseur</th>
+        <th>Specialite</th>
+        <th>Lien</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% certifications.forEach(cert => { %>
+      <tr>
+        <td>
+          <% if (cert.image) { %>
+            <img src="/uploads/images/<%= cert.image %>" class="table-thumb">
+          <% } else { %>
+            <div class="table-thumb-placeholder"><i class="fas fa-award"></i></div>
+          <% } %>
+        </td>
+        <td><strong><%= cert.title %></strong></td>
+        <td><%= cert.provider || '-' %></td>
+        <td><span class="badge"><%= cert.category_name %></span></td>
+        <td>
+          <% if (cert.url) { %>
+            <a href="<%= cert.url %>" target="_blank" class="btn btn-sm btn-view"><i class="fas fa-external-link-alt"></i></a>
+          <% } else { %>-<% } %>
+        </td>
+        <td class="table-actions">
+          <button class="btn btn-sm btn-edit" onclick='editCert(<%= JSON.stringify({id:cert.id, category_id:cert.category_id, title:cert.title, provider:cert.provider, description:cert.description, url:cert.url, sort_order:cert.sort_order}) %>)'>
+            <i class="fas fa-edit"></i>
+          </button>
+          <form method="POST" action="/admin/certifications/delete/<%= cert.id %>" style="display:inline"
+            onsubmit="return confirm('Supprimer cette certification ?')">
+            <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+          </form>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% } else { %>
+    <p style="text-align:center; padding: 40px; color: #999;">Aucune certification. Cliquez sur "Ajouter" pour commencer.</p>
+  <% } %>
+</div>
+
+<!-- Modal Ajouter -->
+<div id="addModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Ajouter une certification</h3>
+      <button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button>
+    </div>
+    <form method="POST" action="/admin/certifications/add" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Specialite *</label>
+        <select name="category_id" class="form-control" required>
+          <option value="">-- Choisir --</option>
+          <% categories.forEach(c => { %>
+            <option value="<%= c.id %>"><%= c.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Titre de la certification *</label>
+        <input type="text" name="title" class="form-control" required placeholder="Ex: Google IT Support">
+      </div>
+      <div class="form-group">
+        <label>Fournisseur</label>
+        <input type="text" name="provider" class="form-control" placeholder="Ex: Coursera, Google, Cisco...">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" class="form-control" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Lien vers la certification</label>
+        <input type="url" name="url" class="form-control" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label>Image</label>
+        <input type="file" name="image" class="form-control" accept="image/*">
+      </div>
+      <div class="form-group">
+        <label>Ordre</label>
+        <input type="number" name="sort_order" class="form-control" value="0">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Enregistrer</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Modifier -->
+<div id="editModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Modifier la certification</h3>
+      <button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button>
+    </div>
+    <form id="editForm" method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Specialite *</label>
+        <select name="category_id" id="editCatId" class="form-control" required>
+          <% categories.forEach(c => { %>
+            <option value="<%= c.id %>"><%= c.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Titre *</label>
+        <input type="text" name="title" id="editTitle" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label>Fournisseur</label>
+        <input type="text" name="provider" id="editProvider" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" id="editDesc" class="form-control" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Lien</label>
+        <input type="url" name="url" id="editUrl" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Nouvelle image (laisser vide pour garder l'actuelle)</label>
+        <input type="file" name="image" class="form-control" accept="image/*">
+      </div>
+      <div class="form-group">
+        <label>Ordre</label>
+        <input type="number" name="sort_order" id="editOrder" class="form-control">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Enregistrer</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function editCert(c) {
+  document.getElementById('editForm').action = '/admin/certifications/edit/' + c.id;
+  document.getElementById('editCatId').value = c.category_id;
+  document.getElementById('editTitle').value = c.title;
+  document.getElementById('editProvider').value = c.provider || '';
+  document.getElementById('editDesc').value = c.description || '';
+  document.getElementById('editUrl').value = c.url || '';
+  document.getElementById('editOrder').value = c.sort_order;
+  document.getElementById('editModal').style.display = 'flex';
+}
+</script>
+
+<%- include('layout-end') %>

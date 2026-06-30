@@ -1,0 +1,136 @@
+<%- include('layout') %>
+
+<div class="admin-header">
+  <h1><i class="fas fa-briefcase"></i> Gestion des debouches</h1>
+  <button class="btn btn-primary" onclick="document.getElementById('addModal').style.display='flex'"
+    <% if (categories.length === 0) { %>disabled<% } %>>
+    <i class="fas fa-plus"></i> Ajouter
+  </button>
+</div>
+
+<div class="admin-card">
+  <% if (debouches.length > 0) { %>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Icone</th>
+        <th>Titre</th>
+        <th>Specialite</th>
+        <th>Description</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% debouches.forEach(d => { %>
+      <tr>
+        <td><i class="<%= d.icon %>" style="font-size:20px; color: var(--primary);"></i></td>
+        <td><strong><%= d.title %></strong></td>
+        <td><span class="badge"><%= d.category_name %></span></td>
+        <td><%= d.description ? d.description.substring(0, 60) + '...' : '-' %></td>
+        <td class="table-actions">
+          <button class="btn btn-sm btn-edit" onclick='editDebouche(<%= JSON.stringify(d) %>)'>
+            <i class="fas fa-edit"></i>
+          </button>
+          <form method="POST" action="/admin/debouches/delete/<%= d.id %>" style="display:inline"
+            onsubmit="return confirm('Supprimer ce debouche ?')">
+            <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+          </form>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% } else { %>
+    <p style="text-align:center; padding: 40px; color: #999;">Aucun debouche. Cliquez sur "Ajouter" pour commencer.</p>
+  <% } %>
+</div>
+
+<!-- Modal Ajouter -->
+<div id="addModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Ajouter un debouche</h3>
+      <button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button>
+    </div>
+    <form method="POST" action="/admin/debouches/add">
+      <div class="form-group">
+        <label>Specialite *</label>
+        <select name="category_id" class="form-control" required>
+          <option value="">-- Choisir --</option>
+          <% categories.forEach(c => { %>
+            <option value="<%= c.id %>"><%= c.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Titre du metier *</label>
+        <input type="text" name="title" class="form-control" required placeholder="Ex: Developpeur Web">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" class="form-control" rows="3" placeholder="Description du metier..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Icone FontAwesome</label>
+        <input type="text" name="icon" class="form-control" value="fas fa-briefcase" placeholder="fas fa-briefcase">
+        <small style="color: var(--gray);">Ex: fas fa-laptop-code, fas fa-hard-hat, fas fa-chart-line</small>
+      </div>
+      <div class="form-group">
+        <label>Ordre</label>
+        <input type="number" name="sort_order" class="form-control" value="0">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Enregistrer</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Modifier -->
+<div id="editModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Modifier le debouche</h3>
+      <button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button>
+    </div>
+    <form id="editForm" method="POST">
+      <div class="form-group">
+        <label>Specialite *</label>
+        <select name="category_id" id="editCatId" class="form-control" required>
+          <% categories.forEach(c => { %>
+            <option value="<%= c.id %>"><%= c.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Titre du metier *</label>
+        <input type="text" name="title" id="editTitle" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" id="editDesc" class="form-control" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Icone FontAwesome</label>
+        <input type="text" name="icon" id="editIcon" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Ordre</label>
+        <input type="number" name="sort_order" id="editOrder" class="form-control">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Enregistrer</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function editDebouche(d) {
+  document.getElementById('editForm').action = '/admin/debouches/edit/' + d.id;
+  document.getElementById('editCatId').value = d.category_id;
+  document.getElementById('editTitle').value = d.title;
+  document.getElementById('editDesc').value = d.description || '';
+  document.getElementById('editIcon').value = d.icon;
+  document.getElementById('editOrder').value = d.sort_order;
+  document.getElementById('editModal').style.display = 'flex';
+}
+</script>
+
+<%- include('layout-end') %>

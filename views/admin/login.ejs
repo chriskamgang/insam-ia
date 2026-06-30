@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion Admin - <%= settings.site_name %></title>
+  <link rel="icon" href="/images/logo.jpeg" type="image/jpeg">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="login-body">
+  <div class="login-container">
+    <div class="login-card">
+      <img src="/images/logo.jpeg" alt="Logo" class="login-logo">
+      <h2><%= settings.site_name %></h2>
+      <p>Panneau d'administration</p>
+
+      <% if (error.length > 0) { %>
+        <div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> <%= error %></div>
+      <% } %>
+
+      <form method="POST" action="/admin/login">
+        <div class="form-group">
+          <label><i class="fas fa-user"></i> Nom d'utilisateur</label>
+          <input type="text" name="username" class="form-control" required autofocus>
+        </div>
+        <div class="form-group">
+          <label><i class="fas fa-lock"></i> Mot de passe</label>
+          <input type="password" name="password" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">
+          <i class="fas fa-sign-in-alt"></i> Se connecter
+        </button>
+      </form>
+      <a href="/" class="login-back"><i class="fas fa-arrow-left"></i> Retour au site</a>
+    </div>
+  </div>
+</body>
+</html>
