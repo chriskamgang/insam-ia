@@ -4,6 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' - ' : '' %><%= settings.site_name %></title>
+
+  <!-- Open Graph / WhatsApp / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://insam-ia.com<%= currentPath %>">
+  <meta property="og:title" content="<%= typeof pageTitle !== 'undefined' ? pageTitle + ' - ' : '' %><%= settings.site_name %>">
+  <meta property="og:description" content="<%= settings.hero_description || 'Plateforme de videos et formations de l\'Institut Universitaire et Strategique de l\'Estuaire (IUEs/INSAM)' %>">
+  <meta property="og:image" content="https://insam-ia.com/images/logo.jpeg">
+  <meta property="og:site_name" content="<%= settings.site_name %>">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= typeof pageTitle !== 'undefined' ? pageTitle + ' - ' : '' %><%= settings.site_name %>">
+  <meta name="twitter:description" content="<%= settings.hero_description || 'Plateforme de videos et formations de l\'Institut Universitaire et Strategique de l\'Estuaire (IUEs/INSAM)' %>">
+  <meta name="twitter:image" content="https://insam-ia.com/images/logo.jpeg">
+
+  <!-- Meta description -->
+  <meta name="description" content="<%= settings.hero_description || 'Plateforme de videos et formations de l\'Institut Universitaire et Strategique de l\'Estuaire (IUEs/INSAM)' %>">
+
   <link rel="icon" href="/images/logo.jpeg" type="image/jpeg">
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
