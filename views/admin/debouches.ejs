@@ -2,10 +2,16 @@
 
 <div class="admin-header">
   <h1><i class="fas fa-briefcase"></i> Gestion des debouches</h1>
-  <button class="btn btn-primary" onclick="document.getElementById('addModal').style.display='flex'"
-    <% if (categories.length === 0) { %>disabled<% } %>>
-    <i class="fas fa-plus"></i> Ajouter
-  </button>
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-primary" onclick="document.getElementById('addModal').style.display='flex'"
+      <% if (categories.length === 0) { %>disabled<% } %>>
+      <i class="fas fa-plus"></i> Ajouter
+    </button>
+    <button class="btn btn-primary" style="background:#4285f4;" onclick="document.getElementById('aiModal').style.display='flex'"
+      <% if (categories.length === 0) { %>disabled<% } %>>
+      <i class="fas fa-robot"></i> Generer avec l'IA
+    </button>
+  </div>
 </div>
 
 <div class="admin-card">
@@ -131,6 +137,34 @@
   </div>
 </div>
 
+<!-- Modal IA -->
+<div id="aiModal" class="modal">
+  <div class="modal-content" style="text-align:center;">
+    <div class="modal-header">
+      <h3><i class="fas fa-robot"></i> Generer les debouches avec l'IA</h3>
+      <button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button>
+    </div>
+    <p style="color:#666;margin-bottom:20px;">Choisissez une specialite et l'IA generera automatiquement les debouches professionnels.</p>
+    <div class="form-group" style="text-align:left;">
+      <label>Specialite *</label>
+      <select id="aiCatId" class="form-control">
+        <option value="">-- Choisir --</option>
+        <% categories.forEach(c => { %>
+          <option value="<%= c.id %>"><%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div id="aiStatus" style="display:none;padding:20px;">
+      <i class="fas fa-spinner fa-spin" style="font-size:2rem;color:#4285f4;"></i>
+      <p style="margin-top:10px;">Gemini genere les debouches...</p>
+    </div>
+    <div id="aiResult" style="display:none;padding:15px;background:#e8f5e9;border-radius:8px;margin-top:10px;"></div>
+    <button id="aiBtn" type="button" class="btn btn-primary btn-block" style="background:#4285f4;margin-top:15px;" onclick="generateDebouches()">
+      <i class="fas fa-magic"></i> Generer
+    </button>
+  </div>
+</div>
+
 <script>
 let deboucheCount = 0;
 
@@ -162,6 +196,38 @@ function saveDebouche(finish) {
         window.location.reload();
       }
     });
+}
+
+function generateDebouches() {
+  const catId = document.getElementById('aiCatId').value;
+  if (!catId) return alert('Choisissez une specialite');
+
+  document.getElementById('aiBtn').disabled = true;
+  document.getElementById('aiStatus').style.display = 'block';
+  document.getElementById('aiResult').style.display = 'none';
+
+  fetch('/admin/debouches/generate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'category_id=' + catId
+  })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('aiStatus').style.display = 'none';
+    if (data.success) {
+      document.getElementById('aiResult').style.display = 'block';
+      document.getElementById('aiResult').innerHTML = '<i class="fas fa-check-circle" style="color:green;font-size:1.5rem;"></i><p style="margin-top:8px;"><strong>' + data.count + ' debouches</strong> generes avec succes !</p>';
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      document.getElementById('aiBtn').disabled = false;
+      alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+    }
+  })
+  .catch(err => {
+    document.getElementById('aiStatus').style.display = 'none';
+    document.getElementById('aiBtn').disabled = false;
+    alert('Erreur: ' + err.message);
+  });
 }
 
 function editDebouche(d) {

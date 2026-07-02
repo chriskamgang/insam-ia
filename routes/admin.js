@@ -216,6 +216,104 @@ router.post('/roadmap/delete/:id', requireAuth, (req, res) => {
   res.redirect('/admin/roadmap');
 });
 
+// --- GENERER ROADMAP AVEC GEMINI ---
+router.post('/roadmap/generate', requireAuth, async (req, res) => {
+  const { category_id } = req.body;
+  const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(category_id);
+  if (!category) return res.status(404).json({ error: 'Categorie introuvable' });
+
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+  try {
+    const prompt = `Tu es un expert en formation universitaire. Genere un roadmap de formation pour la specialite "${category.name}" dans un institut universitaire africain.
+
+Genere entre 5 et 8 etapes progressives. Pour chaque etape, donne:
+- title: titre court de l'etape
+- description: ce que l'etudiant apprendra (2-3 phrases)
+- level: Debutant, Intermediaire, Avance ou Expert
+- duration: duree estimee (ex: "2 mois", "1 semestre")
+- skills: competences cles separees par des virgules
+- icon: une classe FontAwesome adaptee (ex: fas fa-code, fas fa-database, fas fa-server, fas fa-network-wired, fas fa-shield-alt, fas fa-project-diagram, fas fa-rocket)
+- color: une couleur hex
+
+Reponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ou apres. Exemple:
+[{"title":"...","description":"...","level":"...","duration":"...","skills":"...","icon":"...","color":"..."}]`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7 }
+      })
+    });
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return res.status(500).json({ error: 'Reponse IA invalide' });
+
+    const steps = JSON.parse(jsonMatch[0]);
+
+    const insert = db.prepare('INSERT INTO roadmap_steps (category_id, step_number, title, description, level, duration, skills, icon, color, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    steps.forEach((step, i) => {
+      insert.run(category_id, i + 1, step.title, step.description, step.level || 'Debutant', step.duration, step.skills, step.icon || 'fas fa-book', step.color || '#1B2A4A', i + 1);
+    });
+
+    res.json({ success: true, count: steps.length });
+  } catch (err) {
+    console.error('Erreur Gemini:', err);
+    res.status(500).json({ error: 'Erreur lors de la generation: ' + err.message });
+  }
+});
+
+// --- GENERER DEBOUCHES AVEC GEMINI ---
+router.post('/debouches/generate', requireAuth, async (req, res) => {
+  const { category_id } = req.body;
+  const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(category_id);
+  if (!category) return res.status(404).json({ error: 'Categorie introuvable' });
+
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+  try {
+    const prompt = `Tu es un expert en orientation professionnelle en Afrique. Genere une liste de debouches professionnels (metiers) pour un diplome en "${category.name}" dans un institut universitaire africain.
+
+Genere entre 6 et 10 metiers realistes. Pour chaque metier, donne:
+- title: nom du metier
+- description: description courte du metier et ce qu'il fait (2-3 phrases)
+- icon: une classe FontAwesome adaptee au metier (ex: fas fa-laptop-code, fas fa-hard-hat, fas fa-chart-line, fas fa-building, fas fa-cogs, fas fa-users)
+
+Reponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ou apres. Exemple:
+[{"title":"...","description":"...","icon":"..."}]`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7 }
+      })
+    });
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return res.status(500).json({ error: 'Reponse IA invalide' });
+
+    const debouches = JSON.parse(jsonMatch[0]);
+
+    const insert = db.prepare('INSERT INTO debouches (category_id, title, description, icon, sort_order) VALUES (?, ?, ?, ?, ?)');
+    debouches.forEach((d, i) => {
+      insert.run(category_id, d.title, d.description, d.icon || 'fas fa-briefcase', i);
+    });
+
+    res.json({ success: true, count: debouches.length });
+  } catch (err) {
+    console.error('Erreur Gemini:', err);
+    res.status(500).json({ error: 'Erreur lors de la generation: ' + err.message });
+  }
+});
+
 // --- DEBOUCHES ---
 router.get('/debouches', requireAuth, (req, res) => {
   const categories = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC').all();
