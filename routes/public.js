@@ -50,19 +50,26 @@ router.get('/category/:id/certifications', async (req, res) => {
   // Certifications locales
   const certifications = db.prepare('SELECT * FROM certifications WHERE category_id = ? ORDER BY sort_order ASC').all(req.params.id);
 
-  // Formations depuis l'API Laravel (insamtechs)
+  // Formations depuis l'API Laravel (insamtechs) - supporte plusieurs slugs separes par des virgules
   let formations = [];
   if (category.api_slug) {
-    try {
-      const API_URL = process.env.LARAVEL_API_URL || 'https://admin.insamtechs.com/api';
-      const response = await fetch(`${API_URL}/formation/${category.api_slug}?per_page=50`);
-      if (response.ok) {
-        const data = await response.json();
-        formations = data.data || [];
+    const API_URL = process.env.LARAVEL_API_URL || 'https://admin.insamtechs.com/api';
+    const slugs = category.api_slug.split(',').map(s => s.trim()).filter(Boolean);
+
+    const results = await Promise.all(slugs.map(async (slug) => {
+      try {
+        const response = await fetch(`${API_URL}/formation/${slug}?per_page=50`);
+        if (response.ok) {
+          const data = await response.json();
+          return data.data || [];
+        }
+      } catch (err) {
+        console.log(`API Laravel indisponible pour ${slug}:`, err.message);
       }
-    } catch (err) {
-      console.log('API Laravel indisponible:', err.message);
-    }
+      return [];
+    }));
+
+    formations = results.flat();
   }
 
   res.render('certifications', { category, certifications, formations });

@@ -73,9 +73,9 @@
         <input type="file" name="image" class="form-control" accept="image/*">
       </div>
       <div class="form-group">
-        <label>Slug API InsamTechs (pour recuperer les formations)</label>
-        <input type="text" name="api_slug" class="form-control" placeholder="Ex: informatique-xYz123">
-        <small style="color:var(--gray);">Slug de la categorie dans l'API Laravel InsamTechs</small>
+        <label>Slugs API InsamTechs (formations)</label>
+        <textarea name="api_slug" class="form-control" rows="3" placeholder="Ex: informatique-xYz123, marketing-aBc456"></textarea>
+        <small style="color:var(--gray);">Slugs des categories InsamTechs, separes par des virgules. Chaque slug recupere les formations de cette categorie.</small>
       </div>
       <div class="form-group">
         <label>Ordre d'affichage</label>
@@ -109,8 +109,9 @@
         <input type="file" name="image" class="form-control" accept="image/*">
       </div>
       <div class="form-group">
-        <label>Slug API InsamTechs</label>
-        <input type="text" name="api_slug" id="editApiSlug" class="form-control">
+        <label>Slugs API InsamTechs (formations)</label>
+        <textarea name="api_slug" id="editApiSlug" class="form-control" rows="3"></textarea>
+        <small style="color:var(--gray);">Slugs separes par des virgules</small>
       </div>
       <div class="form-group">
         <label>Ordre d'affichage</label>
