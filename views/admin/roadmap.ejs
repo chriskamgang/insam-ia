@@ -55,61 +55,70 @@
 
 <!-- Modal Ajouter -->
 <div id="addModal" class="modal">
-  <div class="modal-content">
+  <div class="modal-content" style="max-height:90vh;overflow-y:auto;">
     <div class="modal-header">
-      <h3>Ajouter une etape</h3>
+      <h3>Ajouter des etapes</h3>
       <button class="modal-close" onclick="this.closest('.modal').style.display='none'">&times;</button>
     </div>
-    <form method="POST" action="/admin/roadmap/add">
-      <div class="form-group">
-        <label>Specialite *</label>
-        <select name="category_id" class="form-control" required>
-          <option value="">-- Choisir --</option>
-          <% categories.forEach(c => { %>
-            <option value="<%= c.id %>"><%= c.name %></option>
-          <% }) %>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Numero de l'etape *</label>
-        <input type="number" name="step_number" class="form-control" required min="1" value="1">
-      </div>
+    <div class="form-group">
+      <label>Specialite *</label>
+      <select id="addCatId" class="form-control" required>
+        <option value="">-- Choisir --</option>
+        <% categories.forEach(c => { %>
+          <option value="<%= c.id %>"><%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div id="addedStepsList"></div>
+    <div id="stepFormArea">
+      <hr style="margin:15px 0;">
+      <h4 id="stepFormTitle" style="margin-bottom:10px;">Etape <span id="stepCount">1</span></h4>
       <div class="form-group">
         <label>Titre *</label>
-        <input type="text" name="title" class="form-control" required placeholder="Ex: Les fondamentaux">
+        <input type="text" id="addTitle" class="form-control" required placeholder="Ex: Les fondamentaux">
       </div>
       <div class="form-group">
         <label>Description</label>
-        <textarea name="description" class="form-control" rows="3" placeholder="Ce que l'etudiant apprendra..."></textarea>
+        <textarea id="addDesc" class="form-control" rows="2" placeholder="Ce que l'etudiant apprendra..."></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label>Niveau</label>
+          <select id="addLevel" class="form-control">
+            <option value="Debutant">Debutant</option>
+            <option value="Intermediaire">Intermediaire</option>
+            <option value="Avance">Avance</option>
+            <option value="Expert">Expert</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Duree estimee</label>
+          <input type="text" id="addDuration" class="form-control" placeholder="Ex: 3 mois">
+        </div>
       </div>
       <div class="form-group">
-        <label>Niveau</label>
-        <select name="level" class="form-control">
-          <option value="Debutant">Debutant</option>
-          <option value="Intermediaire">Intermediaire</option>
-          <option value="Avance">Avance</option>
-          <option value="Expert">Expert</option>
-        </select>
+        <label>Competences (separees par virgules)</label>
+        <input type="text" id="addSkills" class="form-control" placeholder="Ex: HTML, CSS, JavaScript">
       </div>
-      <div class="form-group">
-        <label>Duree estimee</label>
-        <input type="text" name="duration" class="form-control" placeholder="Ex: 3 mois, 1 semestre">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label>Icone</label>
+          <input type="text" id="addIcon" class="form-control" value="fas fa-book">
+        </div>
+        <div class="form-group">
+          <label>Couleur</label>
+          <input type="color" id="addColor" class="form-control" value="#1B2A4A" style="height:45px;padding:5px;">
+        </div>
       </div>
-      <div class="form-group">
-        <label>Competences (separees par des virgules)</label>
-        <input type="text" name="skills" class="form-control" placeholder="Ex: HTML, CSS, JavaScript">
-      </div>
-      <div class="form-group">
-        <label>Icone FontAwesome</label>
-        <input type="text" name="icon" class="form-control" value="fas fa-book" placeholder="fas fa-book">
-        <small style="color:var(--gray);">Ex: fas fa-code, fas fa-server, fas fa-database</small>
-      </div>
-      <div class="form-group">
-        <label>Couleur</label>
-        <input type="color" name="color" class="form-control" value="#1B2A4A" style="height:45px;padding:5px;">
-      </div>
-      <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Enregistrer</button>
-    </form>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:15px;">
+      <button type="button" class="btn btn-primary" style="flex:1;" onclick="saveStep()">
+        <i class="fas fa-plus"></i> Ajouter et continuer
+      </button>
+      <button type="button" class="btn btn-primary" style="flex:1;background:var(--success);" onclick="saveStep(true)">
+        <i class="fas fa-check"></i> Terminer
+      </button>
+    </div>
   </div>
 </div>
 
@@ -172,6 +181,44 @@
 </div>
 
 <script>
+let stepCounter = 1;
+
+function saveStep(finish) {
+  const catId = document.getElementById('addCatId').value;
+  const title = document.getElementById('addTitle').value;
+  if (!catId) return alert('Choisissez une specialite');
+  if (!title) return alert('Le titre est requis');
+
+  const data = new URLSearchParams({
+    category_id: catId,
+    step_number: stepCounter,
+    title: title,
+    description: document.getElementById('addDesc').value,
+    level: document.getElementById('addLevel').value,
+    duration: document.getElementById('addDuration').value,
+    skills: document.getElementById('addSkills').value,
+    icon: document.getElementById('addIcon').value,
+    color: document.getElementById('addColor').value
+  });
+
+  fetch('/admin/roadmap/add', { method: 'POST', body: data, headers: {'Content-Type': 'application/x-www-form-urlencoded'}, redirect: 'manual' })
+    .then(() => {
+      const list = document.getElementById('addedStepsList');
+      list.innerHTML += '<div style="padding:8px 12px;background:#e8f5e9;border-radius:6px;margin-bottom:5px;display:flex;align-items:center;gap:8px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:' + document.getElementById('addColor').value + ';color:white;font-size:11px;font-weight:700;">' + stepCounter + '</span><strong>' + title + '</strong> <span style="color:#888;margin-left:auto;">' + document.getElementById('addLevel').value + '</span></div>';
+
+      stepCounter++;
+      document.getElementById('stepCount').textContent = stepCounter;
+      document.getElementById('addTitle').value = '';
+      document.getElementById('addDesc').value = '';
+      document.getElementById('addDuration').value = '';
+      document.getElementById('addSkills').value = '';
+
+      if (finish) {
+        window.location.reload();
+      }
+    });
+}
+
 function editStep(s) {
   document.getElementById('editForm').action = '/admin/roadmap/edit/' + s.id;
   document.getElementById('editCatId').value = s.category_id;
