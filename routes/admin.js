@@ -239,7 +239,7 @@ Genere entre 5 et 8 etapes progressives. Pour chaque etape, donne:
 Reponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ou apres. Exemple:
 [{"title":"...","description":"...","level":"...","duration":"...","skills":"...","icon":"...","color":"..."}]`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -286,7 +286,7 @@ Genere entre 6 et 10 metiers realistes. Pour chaque metier, donne:
 Reponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ou apres. Exemple:
 [{"title":"...","description":"...","icon":"..."}]`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
