@@ -20,8 +20,8 @@ export default function CategoryDetail() {
             api.get(`/api/public/categories/${id}/debouches`),
         ])
             .then(([catRes, debRes]) => {
-                setCategory(catRes.data.data || catRes.data);
-                setDebouches(debRes.data.data || debRes.data || []);
+                setCategory(catRes.data.category || catRes.data.data || catRes.data);
+                setDebouches(debRes.data.debouches || debRes.data.data || debRes.data || []);
             })
             .catch(() => {})
             .finally(() => setLoading(false));

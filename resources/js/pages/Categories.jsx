@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from '../context/LangContext';
+import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
 const TEAL = '#5BBCB4';
@@ -29,6 +30,7 @@ const ACCENT_COLORS = [
 
 export default function Categories() {
     const { t } = useLang();
+    const { user } = useAuth();
     const [categories, setCategories] = useState([]);
     const [recentVideos, setRecentVideos] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -317,7 +319,7 @@ export default function Categories() {
                                     </li>
                                 ))}
                             </ul>
-                            <Link to="/register" style={{
+                            <Link to={user ? "/dashboard" : "/register"} style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 8,
                                 background: TEAL, color: 'white',
                                 padding: '13px 28px', borderRadius: 8,

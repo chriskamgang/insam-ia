@@ -18,6 +18,7 @@ export default function Dashboard() {
     const [formations, setFormations] = useState([]);
     const [formationsCat, setFormationsCat] = useState(null);
     const [loadingFormations, setLoadingFormations] = useState(true);
+    const [watchHistory, setWatchHistory] = useState([]);
 
     useEffect(() => {
         api.get('/api/public/recent-videos')
@@ -29,12 +30,60 @@ export default function Dashboard() {
             .catch(() => {});
         api.get('/api/my-formations')
             .then(r => {
-                setFormations(r.data.formations || []);
+                const fmts = r.data.formations || [];
+                setFormations(fmts);
                 setFormationsCat(r.data.category || null);
+                // Build watch history from localStorage
+                const history = JSON.parse(localStorage.getItem('insam_watch_history') || '[]');
+                // Match history entries with formations data
+                const recentCourses = history
+                    .map(h => {
+                        const formation = fmts.find(f => (f.intitule || f.title) === h.formationTitle);
+                        if (!formation) return null;
+                        const totalChapitres = formation.chapitres?.length || 1;
+                        const watchedCount = h.watchedChapitres?.length || 0;
+                        return { ...h, formation, totalChapitres, watchedCount, progress: Math.round((watchedCount / totalChapitres) * 100) };
+                    })
+                    .filter(Boolean);
+                setWatchHistory(recentCourses);
             })
             .catch(() => {})
             .finally(() => setLoadingFormations(false));
     }, []);
+
+    // Track video click in watch history
+    const trackVideoWatch = (formation, chapitre, video) => {
+        const history = JSON.parse(localStorage.getItem('insam_watch_history') || '[]');
+        const fTitle = formation.intitule || formation.title;
+        let entry = history.find(h => h.formationTitle === fTitle);
+        if (!entry) {
+            entry = { formationTitle: fTitle, img: formation.img, lastWatched: Date.now(), watchedChapitres: [] };
+            history.unshift(entry);
+        } else {
+            entry.lastWatched = Date.now();
+            // Move to top
+            const idx = history.indexOf(entry);
+            history.splice(idx, 1);
+            history.unshift(entry);
+        }
+        const chTitle = chapitre.intitule || chapitre.title;
+        if (!entry.watchedChapitres.includes(chTitle)) {
+            entry.watchedChapitres.push(chTitle);
+        }
+        entry.lastVideo = video.intitule || video.title || 'Video';
+        entry.lastChapitre = chTitle;
+        localStorage.setItem('insam_watch_history', JSON.stringify(history.slice(0, 20)));
+        // Update state
+        setWatchHistory(prev => {
+            const updated = history.map(h => {
+                const fmt = formations.find(f => (f.intitule || f.title) === h.formationTitle);
+                if (!fmt) return null;
+                const total = fmt.chapitres?.length || 1;
+                return { ...h, formation: fmt, totalChapitres: total, watchedCount: h.watchedChapitres?.length || 0, progress: Math.round(((h.watchedChapitres?.length || 0) / total) * 100) };
+            }).filter(Boolean);
+            return updated;
+        });
+    };
 
     const firstName = user?.name?.split(' ')[0] || 'Etudiant';
 
@@ -170,147 +219,69 @@ export default function Dashboard() {
                                 <i className="fas fa-play-circle" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
                                 Derniers cours
                             </h2>
-                            <Link to="/formations" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                            <Link to="/bibliotheque" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
                                 Voir tout &rarr;
                             </Link>
                         </div>
 
-                        {loadingVideos ? (
+                        {loadingFormations ? (
                             <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
                                 <i className="fas fa-spinner fa-spin" style={{ fontSize: 24, marginBottom: 12 }}></i>
                                 <p>Chargement...</p>
                             </div>
-                        ) : recentVideos.length === 0 ? (
-                            <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
-                                <i className="fas fa-video" style={{ fontSize: 32, marginBottom: 12, color: '#e5e7eb' }}></i>
-                                <p style={{ fontSize: 14 }}>Aucune video disponible pour le moment.</p>
-                                <Link to="/formations" style={{ display: 'inline-block', marginTop: 12, color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-                                    Explorer les formations &rarr;
-                                </Link>
-                            </div>
-                        ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                                {recentVideos.slice(0, 4).map(v => (
-                                    <Link to={`/video/${v.id}`} key={v.id} style={{
-                                        background: 'white', borderRadius: 14,
-                                        overflow: 'hidden', textDecoration: 'none',
-                                        border: '1px solid #f0f0f0',
+                        ) : watchHistory.length > 0 ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+                                {watchHistory.filter(h => h.progress < 100).slice(0, 4).map((h, i) => (
+                                    <div key={i} style={{
+                                        background: 'white', borderRadius: 14, overflow: 'hidden',
+                                        border: '1px solid #f0f0f0', display: 'flex', alignItems: 'stretch',
                                         transition: 'all .2s',
                                     }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(91,188,180,0.12)';
-                                            e.currentTarget.style.borderColor = TEAL;
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.boxShadow = 'none';
-                                            e.currentTarget.style.borderColor = '#f0f0f0';
-                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(91,188,180,0.1)'; e.currentTarget.style.borderColor = TEAL; }}
+                                        onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#f0f0f0'; }}
                                     >
                                         <div style={{
-                                            height: 110,
-                                            background: 'linear-gradient(135deg, #5BBCB440 0%, #1B2A4A30 100%)',
+                                            width: 120, minHeight: 90, flexShrink: 0,
+                                            background: h.img ? `url(${h.img}) center/cover` : `linear-gradient(135deg, ${TEAL}90, ${NAVY}90)`,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 28, color: TEAL,
                                         }}>
-                                            <i className="fas fa-play-circle"></i>
+                                            {!h.img && <i className="fas fa-play-circle" style={{ fontSize: 24, color: 'white' }}></i>}
                                         </div>
-                                        <div style={{ padding: '12px 14px' }}>
-                                            {v.category_name && (
-                                                <span style={{ fontSize: 10, background: '#e8f8f5', color: TEAL, padding: '3px 8px', borderRadius: 4, fontWeight: 600, display: 'inline-block', marginBottom: 6 }}>
-                                                    {v.category_name}
-                                                </span>
-                                            )}
-                                            <h3 style={{ fontSize: 13, fontWeight: 700, color: NAVY, lineHeight: 1.4, marginBottom: 6 }}>
-                                                {v.title}
+                                        <div style={{ flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: 10, background: '#e8f8f5', color: TEAL, padding: '2px 8px', borderRadius: 4, fontWeight: 600, display: 'inline-block', marginBottom: 4, width: 'fit-content' }}>
+                                                {formationsCat?.name || 'Cours'}
+                                            </span>
+                                            <h3 style={{ fontSize: 13, fontWeight: 700, color: NAVY, lineHeight: 1.4, margin: '0 0 6px' }}>
+                                                {h.formationTitle}
                                             </h3>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: 11 }}>
-                                                <span><i className="fas fa-eye" style={{ marginRight: 3 }}></i>{v.views_count || 0}</span>
-                                                {v.duration && <span><i className="fas fa-clock" style={{ marginRight: 3 }}></i>{v.duration}</span>}
+                                            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>
+                                                <i className="fas fa-bookmark" style={{ marginRight: 4 }}></i>
+                                                Dernier: {h.lastChapitre}
                                             </div>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Formations InsamTechs for user's filière */}
-                    {!loadingFormations && formations.length > 0 && (
-                        <div style={{ gridColumn: '1 / -1', marginBottom: 8 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                                <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>
-                                    <i className="fas fa-graduation-cap" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
-                                    Cours de votre filiere {formationsCat ? `- ${formationsCat.name}` : ''}
-                                </h2>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                                {formations.map((f, fi) => (
-                                    <div key={fi} style={{
-                                        background: 'white', borderRadius: 16, overflow: 'hidden',
-                                        border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                                    }}>
-                                        <div style={{
-                                            height: 100,
-                                            background: `linear-gradient(135deg, ${TEAL}30, ${NAVY}20)`,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            position: 'relative',
-                                        }}>
-                                            {f.img ? (
-                                                <img src={f.img} alt={f.intitule} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                     onError={e => { e.target.style.display = 'none'; }} />
-                                            ) : (
-                                                <i className="fas fa-book-open" style={{ fontSize: 28, color: TEAL }}></i>
-                                            )}
-                                        </div>
-                                        <div style={{ padding: '14px 16px' }}>
-                                            <h3 style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 6, lineHeight: 1.4, textTransform: 'capitalize' }}>
-                                                {f.intitule || 'Formation'}
-                                            </h3>
-                                            {f.chapitres && f.chapitres.length > 0 && (
-                                                <div style={{ marginTop: 8 }}>
-                                                    <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', marginBottom: 6 }}>
-                                                        {f.chapitres.length} chapitre{f.chapitres.length > 1 ? 's' : ''}
-                                                    </div>
-                                                    {f.chapitres.slice(0, 3).map((ch, ci) => (
-                                                        <div key={ci} style={{ marginBottom: 4 }}>
-                                                            <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 2, textTransform: 'capitalize' }}>
-                                                                {ch.intitule}
-                                                            </div>
-                                                            {ch.videos && ch.videos.slice(0, 2).map((vid, vi) => (
-                                                                <a
-                                                                    key={vi}
-                                                                    href={vid.lien || '#'}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    style={{
-                                                                        display: 'flex', alignItems: 'center', gap: 6,
-                                                                        padding: '4px 8px', marginLeft: 8,
-                                                                        fontSize: 11, color: TEAL, textDecoration: 'none',
-                                                                        borderRadius: 6,
-                                                                        transition: 'background .15s',
-                                                                    }}
-                                                                    onMouseEnter={e => e.currentTarget.style.background = '#e8f8f5'}
-                                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                                                >
-                                                                    <i className="fas fa-play-circle" style={{ fontSize: 10 }}></i>
-                                                                    <span style={{ textTransform: 'capitalize' }}>{vid.intitule || 'Video'}</span>
-                                                                </a>
-                                                            ))}
-                                                        </div>
-                                                    ))}
-                                                    {f.chapitres.length > 3 && (
-                                                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-                                                            +{f.chapitres.length - 3} autres chapitres...
-                                                        </div>
-                                                    )}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div style={{ flex: 1, height: 4, background: '#f0f0f0', borderRadius: 2, overflow: 'hidden' }}>
+                                                    <div style={{ width: `${h.progress}%`, height: '100%', background: TEAL, borderRadius: 2 }}></div>
                                                 </div>
-                                            )}
+                                                <span style={{ fontSize: 10, fontWeight: 700, color: TEAL }}>{h.progress}%</span>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
+                                {watchHistory.filter(h => h.progress < 100).length === 0 && (
+                                    <div style={{ background: 'white', borderRadius: 16, padding: 36, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
+                                        <i className="fas fa-check-circle" style={{ fontSize: 28, marginBottom: 10, color: TEAL, display: 'block' }}></i>
+                                        <p style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>Tous vos cours sont termines !</p>
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    )}
+                        ) : (
+                            <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
+                                <i className="fas fa-book-open" style={{ fontSize: 32, marginBottom: 12, color: '#e5e7eb' }}></i>
+                                <p style={{ fontSize: 14 }}>Vous n'avez pas encore commence de cours.</p>
+                                <p style={{ fontSize: 12, color: '#b0b0b0' }}>Cliquez sur une video dans "Cours de votre filiere" pour commencer.</p>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Right column */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -446,6 +417,88 @@ export default function Dashboard() {
                         )}
                     </div>
                 </div>
+
+                {/* Formations InsamTechs for user's filière - OUTSIDE grid */}
+                {!loadingFormations && formations.length > 0 && (
+                    <div style={{ marginTop: 32 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                            <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>
+                                <i className="fas fa-graduation-cap" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
+                                Cours de votre filiere {formationsCat ? `- ${formationsCat.name}` : ''}
+                            </h2>
+                            <Link to="/bibliotheque" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                                Voir tout &rarr;
+                            </Link>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                            {formations.map((f, fi) => (
+                                <div key={fi} style={{
+                                    background: 'white', borderRadius: 16, overflow: 'hidden',
+                                    border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                                }}>
+                                    <div style={{
+                                        height: 100,
+                                        background: `linear-gradient(135deg, ${TEAL}30, ${NAVY}20)`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        position: 'relative',
+                                    }}>
+                                        {f.img ? (
+                                            <img src={f.img} alt={f.intitule} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                 onError={e => { e.target.style.display = 'none'; }} />
+                                        ) : (
+                                            <i className="fas fa-book-open" style={{ fontSize: 28, color: TEAL }}></i>
+                                        )}
+                                    </div>
+                                    <div style={{ padding: '14px 16px' }}>
+                                        <h3 style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 6, lineHeight: 1.4, textTransform: 'capitalize' }}>
+                                            {f.intitule || 'Formation'}
+                                        </h3>
+                                        {f.chapitres && f.chapitres.length > 0 && (
+                                            <div style={{ marginTop: 8 }}>
+                                                <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', marginBottom: 6 }}>
+                                                    {f.chapitres.length} chapitre{f.chapitres.length > 1 ? 's' : ''}
+                                                </div>
+                                                {f.chapitres.slice(0, 3).map((ch, ci) => (
+                                                    <div key={ci} style={{ marginBottom: 4 }}>
+                                                        <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 2, textTransform: 'capitalize' }}>
+                                                            {ch.intitule}
+                                                        </div>
+                                                        {ch.videos && ch.videos.slice(0, 2).map((vid, vi) => (
+                                                            <a
+                                                                key={vi}
+                                                                href={vid.lien || '#'}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                onClick={() => trackVideoWatch(f, ch, vid)}
+                                                                style={{
+                                                                    display: 'flex', alignItems: 'center', gap: 6,
+                                                                    padding: '4px 8px', marginLeft: 8,
+                                                                    fontSize: 11, color: TEAL, textDecoration: 'none',
+                                                                    borderRadius: 6,
+                                                                    transition: 'background .15s',
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#e8f8f5'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <i className="fas fa-play-circle" style={{ fontSize: 10 }}></i>
+                                                                <span style={{ textTransform: 'capitalize' }}>{vid.intitule || 'Video'}</span>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                                {f.chapitres.length > 3 && (
+                                                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                                                        +{f.chapitres.length - 3} autres chapitres...
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

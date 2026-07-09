@@ -142,10 +142,20 @@ export default function Landing() {
     const { user } = useAuth();
     const [categories, setCategories] = useState([]);
     const [recentVideos, setRecentVideos] = useState([]);
+    const [formations, setFormations] = useState([]);
     const [stats, setStats] = useState({});
 
     useEffect(() => {
-        api.get('/api/public/categories').then(r => setCategories(r.data.data || [])).catch(() => {});
+        api.get('/api/public/categories').then(r => {
+            const cats = r.data.data || [];
+            setCategories(cats);
+            // Load formations from first category that has api_slug
+            if (cats.length > 0) {
+                api.get(`/api/public/categories/${cats[0].id}/formations`)
+                    .then(fr => setFormations(fr.data.formations || []))
+                    .catch(() => {});
+            }
+        }).catch(() => {});
         api.get('/api/public/recent-videos').then(r => setRecentVideos(r.data.data || [])).catch(() => {});
         api.get('/api/public/stats').then(r => setStats(r.data)).catch(() => {});
     }, []);
@@ -487,8 +497,43 @@ export default function Landing() {
                         </Link>
                     </div>
 
-                    {recentVideos.length === 0 ? (
-                        /* Skeleton placeholders */
+                    {formations.length > 0 ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                            {formations.slice(0, 4).map((f, i) => (
+                                <div key={i} style={{
+                                    background: 'white', borderRadius: 16, overflow: 'hidden',
+                                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: 'all .2s', cursor: 'pointer',
+                                }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.1)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'; }}
+                                >
+                                    <div style={{
+                                        height: 160, position: 'relative',
+                                        background: f.img ? `url(${f.img}) center/cover` : THUMB_GRADIENTS[i % THUMB_GRADIENTS.length],
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        {!f.img && <i className="fas fa-play-circle" style={{ fontSize: 36, color: 'rgba(255,255,255,0.8)' }}></i>}
+                                        <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: 10, padding: '3px 8px', borderRadius: 4, fontWeight: 600 }}>
+                                            {f.chapitres?.length || 0} chapitres
+                                        </div>
+                                    </div>
+                                    <div style={{ padding: 16 }}>
+                                        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1B2A4A', lineHeight: 1.4, margin: '0 0 8px', textTransform: 'capitalize' }}>
+                                            {f.intitule || f.title || 'Formation'}
+                                        </h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9ca3af' }}>
+                                            <i className="fas fa-graduation-cap"></i>
+                                            <span>InsamTechs</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : recentVideos.length > 0 ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                            {firstBatch.map((v, i) => <CourseCard key={v.id} video={v} index={i} />)}
+                        </div>
+                    ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
                             {[...Array(4)].map((_, i) => (
                                 <div key={i} style={{ background: '#f9fafb', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
@@ -500,10 +545,6 @@ export default function Landing() {
                                     </div>
                                 </div>
                             ))}
-                        </div>
-                    ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
-                            {firstBatch.map((v, i) => <CourseCard key={v.id} video={v} index={i} />)}
                         </div>
                     )}
                 </div>
