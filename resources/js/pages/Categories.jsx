@@ -28,6 +28,26 @@ const ACCENT_COLORS = [
     '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6', '#6366F1',
 ];
 
+const catCSS = `
+.cat-grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+.cat-cta-flex { display:flex; align-items:center; gap:48px; padding:52px 24px; }
+.cat-cta-visual { flex:1; display:flex; justify-content:center; }
+.cat-cta-visual-box { width:320px; height:240px; }
+@media(max-width:1024px){
+  .cat-grid4 { grid-template-columns:repeat(2,1fr); }
+  .cat-cta-flex { gap:28px; }
+  .cat-cta-visual-box { width:260px; height:200px; }
+}
+@media(max-width:768px){
+  .cat-grid4 { grid-template-columns:repeat(2,1fr); gap:14px; }
+  .cat-cta-flex { flex-direction:column; padding:36px 24px; }
+  .cat-cta-visual { display:none; }
+}
+@media(max-width:480px){
+  .cat-grid4 { grid-template-columns:1fr; }
+}
+`;
+
 export default function Categories() {
     const { t } = useLang();
     const { user } = useAuth();
@@ -72,6 +92,7 @@ export default function Categories() {
 
     return (
         <div style={{ background: '#F5F5F5', minHeight: '100vh', fontFamily: 'inherit' }}>
+            <style>{catCSS}</style>
 
             {/* ── SEARCH BAR SECTION (TOTC top bar) ── */}
             <section style={{ background: TEAL, padding: '28px 0' }}>
@@ -222,7 +243,7 @@ export default function Categories() {
 
                 {/* ── LOADING SKELETON ── */}
                 {loading && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                    <div className="cat-grid4">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                             <div key={i} style={{
                                 background: 'white',
@@ -261,7 +282,7 @@ export default function Categories() {
 
                 {/* ── CATEGORIES GRID (4-col TOTC style) ── */}
                 {!loading && displayed.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                    <div className="cat-grid4">
                         {displayed.map((cat, idx) => (
                             <CategoryCard key={cat.id} cat={cat} idx={idx} t={t} />
                         ))}
@@ -278,13 +299,7 @@ export default function Categories() {
                     padding: '0',
                     borderTop: `4px solid ${TEAL}`,
                 }}>
-                    <div style={{
-                        ...W,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 48,
-                        padding: '52px 24px',
-                    }}>
+                    <div className="cat-cta-flex" style={{ ...W }}>
                         {/* Left: text + bullets + CTA */}
                         <div style={{ flex: 1 }}>
                             <span style={{
@@ -336,9 +351,8 @@ export default function Categories() {
                         </div>
 
                         {/* Right: decorative visual */}
-                        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                            <div style={{
-                                width: 320, height: 240,
+                        <div className="cat-cta-visual">
+                            <div className="cat-cta-visual-box" style={{
                                 borderRadius: 16,
                                 background: 'linear-gradient(135deg, #5BBCB4 0%, #1B2A4A 100%)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -410,7 +424,7 @@ export default function Categories() {
                         </Link>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                    <div className="cat-grid4">
                         {recentVideos.slice(0, 8).map((video, idx) => (
                             <RecentVideoCard key={video.id} video={video} idx={idx} t={t} />
                         ))}

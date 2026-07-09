@@ -137,6 +137,54 @@ function CourseCard({ video, index }) {
     );
 }
 
+const responsiveCSS = `
+.landing-hero-flex { display:flex; align-items:center; gap:60px; }
+.landing-hero-left { flex:1.1; min-width:0; }
+.landing-hero-right { flex:0.9; min-width:0; }
+.landing-hero-title { font-size:48px; font-weight:800; color:#1B2A4A; line-height:1.12; margin:0 0 20px; }
+.landing-hero-thumb { width:100%; height:260px; }
+.landing-stats-row { display:flex; justify-content:center; gap:0; }
+.landing-stat-item { display:flex; align-items:center; gap:16px; padding:0 48px; }
+.landing-stat-val { font-size:26px; }
+.landing-grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+.landing-section { padding:72px 0; }
+.landing-section-sm { padding:60px 0; }
+.landing-cta-section { padding:60px 24px; }
+.landing-hero-section { padding:80px 0 60px; }
+.landing-hero-card-pad { padding:20px; }
+.landing-mini-thumbs { display:flex; gap:12px; margin-top:14px; }
+
+@media(max-width:1024px){
+  .landing-grid4 { grid-template-columns:repeat(2,1fr); }
+  .landing-hero-flex { gap:32px; }
+  .landing-hero-title { font-size:36px; }
+  .landing-stat-item { padding:0 24px; }
+  .landing-stat-val { font-size:22px; }
+}
+@media(max-width:768px){
+  .landing-hero-flex { flex-direction:column; gap:28px; }
+  .landing-hero-right { width:100%; }
+  .landing-hero-title { font-size:28px; }
+  .landing-hero-section { padding:40px 0 32px; }
+  .landing-stats-row { flex-wrap:wrap; gap:16px; justify-content:center; }
+  .landing-stat-item { border-right:none!important; padding:12px 20px; }
+  .landing-grid4 { grid-template-columns:repeat(2,1fr); gap:14px; }
+  .landing-section { padding:48px 0; }
+  .landing-section-sm { padding:40px 0; }
+  .landing-cta-section { padding:40px 16px; }
+  .landing-hero-card-pad { padding:14px; }
+  .landing-hero-thumb { height:200px; }
+}
+@media(max-width:480px){
+  .landing-grid4 { grid-template-columns:1fr; }
+  .landing-hero-title { font-size:24px; }
+  .landing-stat-item { padding:8px 12px; }
+  .landing-stat-val { font-size:20px; }
+  .landing-mini-thumbs { gap:8px; }
+  .landing-hero-thumb { height:160px; }
+}
+`;
+
 export default function Landing() {
     const { t } = useLang();
     const { user } = useAuth();
@@ -166,18 +214,18 @@ export default function Landing() {
 
     return (
         <div style={{ background: '#F5F5F5', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+            <style>{responsiveCSS}</style>
 
             {/* ============================
                 1. HERO SECTION
             ============================= */}
-            <section style={{
+            <section className="landing-hero-section" style={{
                 background: 'linear-gradient(160deg, #eafaf8 0%, #f4fdfc 45%, #fafafa 100%)',
-                padding: '80px 0 60px',
             }}>
-                <div style={{ ...W, display: 'flex', alignItems: 'center', gap: 60 }}>
+                <div className="landing-hero-flex" style={{ ...W }}>
 
                     {/* Left: text */}
-                    <div style={{ flex: 1.1, minWidth: 0 }}>
+                    <div className="landing-hero-left">
                         {/* Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
                             <div style={{
@@ -190,10 +238,7 @@ export default function Landing() {
                             }}>INSAM-IA PLATFORM</span>
                         </div>
 
-                        <h1 style={{
-                            fontSize: 48, fontWeight: 800, color: '#1B2A4A',
-                            lineHeight: 1.12, margin: '0 0 20px',
-                        }}>
+                        <h1 className="landing-hero-title">
                             {t('hero.title')}
                         </h1>
 
@@ -266,16 +311,15 @@ export default function Landing() {
                     </div>
 
                     {/* Right: hero card */}
-                    <div style={{ flex: 0.9, minWidth: 0 }}>
-                        <div style={{
+                    <div className="landing-hero-right">
+                        <div className="landing-hero-card-pad" style={{
                             background: 'white',
                             borderRadius: 24,
-                            padding: 20,
                             boxShadow: '0 24px 64px rgba(27,42,74,0.10)',
                         }}>
                             {/* Main thumbnail */}
-                            <div style={{
-                                width: '100%', height: 260, borderRadius: 16,
+                            <div className="landing-hero-thumb" style={{
+                                borderRadius: 16,
                                 background: 'linear-gradient(135deg, #1B2A4A 0%, #5BBCB4 100%)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 position: 'relative', overflow: 'hidden',
@@ -333,7 +377,7 @@ export default function Landing() {
                             </div>
 
                             {/* 3 small preview thumbnails */}
-                            <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
+                            <div className="landing-mini-thumbs">
                                 {[
                                     { gradient: 'linear-gradient(135deg, #667eea, #764ba2)', icon: 'fa-laptop-code', label: 'Dev Web' },
                                     { gradient: 'linear-gradient(135deg, #f093fb, #f5576c)', icon: 'fa-chart-bar', label: 'Gestion' },
@@ -360,16 +404,14 @@ export default function Landing() {
                 2. STATS BAR
             ============================= */}
             <section style={{ background: 'white', padding: '32px 0', borderBottom: '1px solid #f0f0f0', borderTop: '1px solid #f0f0f0' }}>
-                <div style={{ ...W, display: 'flex', justifyContent: 'center', gap: 0 }}>
+                <div className="landing-stats-row" style={{ ...W }}>
                     {[
                         { val: `${stats.students || '15K'}+`, label: t('home.stats_students'), icon: 'fas fa-user-graduate', color: '#5BBCB4', bg: '#e8f8f5' },
                         { val: '75%', label: t('home.stats_success'), icon: 'fas fa-trophy', color: '#f59e0b', bg: '#fffbeb' },
                         { val: `${stats.courses || 35}`, label: t('home.stats_courses'), icon: 'fas fa-book-open', color: '#8b5cf6', bg: '#f5f3ff' },
                         { val: `${stats.videos || '50'}+`, label: t('home.stats_videos'), icon: 'fas fa-play-circle', color: '#ef4444', bg: '#fef2f2' },
                     ].map((s, i, arr) => (
-                        <div key={i} style={{
-                            display: 'flex', alignItems: 'center', gap: 16,
-                            padding: '0 48px',
+                        <div key={i} className="landing-stat-item" style={{
                             borderRight: i < arr.length - 1 ? '1px solid #f0f0f0' : 'none',
                         }}>
                             <div style={{
@@ -381,7 +423,7 @@ export default function Landing() {
                                 <i className={s.icon}></i>
                             </div>
                             <div>
-                                <div style={{ fontSize: 26, fontWeight: 800, color: '#1B2A4A', lineHeight: 1 }}>{s.val}</div>
+                                <div className="landing-stat-val" style={{ fontWeight: 800, color: '#1B2A4A', lineHeight: 1 }}>{s.val}</div>
                                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, fontWeight: 500 }}>{s.label}</div>
                             </div>
                         </div>
@@ -392,7 +434,7 @@ export default function Landing() {
             {/* ============================
                 3. CATEGORY SECTION
             ============================= */}
-            <section style={{ padding: '72px 0' }}>
+            <section className="landing-section">
                 <div style={W}>
                     <div style={{ textAlign: 'center', marginBottom: 48 }}>
                         <h2 style={{ fontSize: 30, fontWeight: 800, color: '#1B2A4A', marginBottom: 12 }}>
@@ -403,11 +445,7 @@ export default function Landing() {
                         </p>
                     </div>
 
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gap: 20,
-                    }}>
+                    <div className="landing-grid4">
                         {(categories.length > 0 ? categories : Array(8).fill(null)).map((cat, i) => {
                             const palette = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
                             const icons = ['fa-laptop-code', 'fa-chart-line', 'fa-calculator', 'fa-flask', 'fa-balance-scale', 'fa-language', 'fa-brain', 'fa-database'];
@@ -474,7 +512,7 @@ export default function Landing() {
             {/* ============================
                 4. RECOMMENDED COURSES
             ============================= */}
-            <section style={{ padding: '60px 0', background: 'white' }}>
+            <section className="landing-section-sm" style={{ background: 'white' }}>
                 <div style={W}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                         <div>
@@ -498,7 +536,7 @@ export default function Landing() {
                     </div>
 
                     {formations.length > 0 ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                        <div className="landing-grid4">
                             {formations.slice(0, 4).map((f, i) => (
                                 <div key={i} style={{
                                     background: 'white', borderRadius: 16, overflow: 'hidden',
@@ -530,11 +568,11 @@ export default function Landing() {
                             ))}
                         </div>
                     ) : recentVideos.length > 0 ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                        <div className="landing-grid4">
                             {firstBatch.map((v, i) => <CourseCard key={v.id} video={v} index={i} />)}
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                        <div className="landing-grid4">
                             {[...Array(4)].map((_, i) => (
                                 <div key={i} style={{ background: '#f9fafb', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
                                     <div style={{ height: 160, background: THUMB_GRADIENTS[i], opacity: 0.6 }}></div>
@@ -553,9 +591,8 @@ export default function Landing() {
             {/* ============================
                 5. CTA BANNER
             ============================= */}
-            <section style={{
+            <section className="landing-cta-section" style={{
                 background: 'linear-gradient(120deg, #5BBCB4 0%, #3da89e 100%)',
-                padding: '60px 24px',
                 textAlign: 'center',
             }}>
                 <div style={{ maxWidth: 680, margin: '0 auto' }}>
@@ -591,7 +628,7 @@ export default function Landing() {
                 6a. "GET CHOICE OF YOUR COURSE"
             ============================= */}
             {secondBatch.length > 0 && (
-                <section style={{ padding: '60px 0' }}>
+                <section className="landing-section-sm">
                     <div style={W}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                             <div>
@@ -610,7 +647,7 @@ export default function Landing() {
                                 <i className="fas fa-arrow-right" style={{ fontSize: 12 }}></i>
                             </Link>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                        <div className="landing-grid4">
                             {secondBatch.map((v, i) => <CourseCard key={v.id} video={v} index={i + 4} />)}
                         </div>
                     </div>
@@ -640,7 +677,7 @@ export default function Landing() {
                                 <i className="fas fa-arrow-right" style={{ fontSize: 12 }}></i>
                             </Link>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                        <div className="landing-grid4">
                             {thirdBatch.map((v, i) => <CourseCard key={v.id} video={v} index={i + 8} />)}
                         </div>
                     </div>
@@ -651,7 +688,7 @@ export default function Landing() {
             {thirdBatch.length === 0 && (
                 <section style={{ padding: '0 0 72px' }}>
                     <div style={W}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                        <div className="landing-grid4">
                             {[
                                 { icon: 'fas fa-robot', title: t('home.feature1'), desc: t('home.feature1_desc'), color: '#5BBCB4', bg: '#e8f8f5' },
                                 { icon: 'fas fa-file-alt', title: t('home.feature2'), desc: t('home.feature2_desc'), color: '#f59e0b', bg: '#fffbeb' },

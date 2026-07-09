@@ -9,6 +9,34 @@ const W = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' };
 const TEAL = '#5BBCB4';
 const NAVY = '#1B2A4A';
 
+const dashCSS = `
+.dash-stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
+.dash-stat-item { display:flex; align-items:center; gap:16px; padding:24px 28px; }
+.dash-main-grid { display:grid; grid-template-columns:1fr 340px; gap:24px; align-items:start; }
+.dash-hero-flex { display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+.dash-hero-title { font-size:34px; }
+.dash-stat-val { font-size:26px; }
+
+@media(max-width:1024px){
+  .dash-main-grid { grid-template-columns:1fr 280px; }
+  .dash-stats-grid { grid-template-columns:repeat(2,1fr); }
+  .dash-stat-item { border-right:none!important; border-bottom:1px solid #f3f4f6; }
+}
+@media(max-width:768px){
+  .dash-main-grid { grid-template-columns:1fr; }
+  .dash-stats-grid { grid-template-columns:repeat(2,1fr); }
+  .dash-stat-item { padding:16px 20px; }
+  .dash-stat-val { font-size:22px; }
+  .dash-hero-title { font-size:26px; }
+  .dash-hero-flex { flex-direction:column; align-items:flex-start; }
+}
+@media(max-width:480px){
+  .dash-stats-grid { grid-template-columns:1fr; }
+  .dash-stat-item { border-right:none!important; border-bottom:1px solid #f3f4f6; }
+  .dash-hero-title { font-size:22px; }
+}
+`;
+
 export default function Dashboard() {
     const { user } = useAuth();
     const { t } = useLang();
@@ -105,13 +133,14 @@ export default function Dashboard() {
 
     return (
         <div style={{ background: '#F8FAFB', minHeight: '100vh', paddingBottom: 60 }}>
+            <style>{dashCSS}</style>
 
             {/* ── HERO WELCOME BANNER ── */}
             <section style={{ background: 'linear-gradient(135deg, #1B2A4A 0%, #243758 60%, #2d4470 100%)', padding: '48px 0 52px' }}>
-                <div style={{ ...W, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+                <div className="dash-hero-flex" style={{ ...W }}>
                     <div>
                         <span style={{ color: TEAL, fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>TABLEAU DE BORD</span>
-                        <h1 style={{ fontSize: 34, fontWeight: 800, color: 'white', margin: '10px 0 8px', lineHeight: 1.2 }}>
+                        <h1 className="dash-hero-title" style={{ fontWeight: 800, color: 'white', margin: '10px 0 8px', lineHeight: 1.2 }}>
                             Bon retour, <span style={{ color: TEAL }}>{firstName}</span> !
                         </h1>
                         <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 15, maxWidth: 480 }}>
@@ -138,11 +167,9 @@ export default function Dashboard() {
 
             {/* ── STATS STRIP ── */}
             <section style={{ background: 'white', borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ ...W, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0 }}>
+                <div className="dash-stats-grid" style={{ ...W }}>
                     {stats.map((s, i) => (
-                        <div key={i} style={{
-                            display: 'flex', alignItems: 'center', gap: 16,
-                            padding: '24px 28px',
+                        <div key={i} className="dash-stat-item" style={{
                             borderRight: i < stats.length - 1 ? '1px solid #f3f4f6' : 'none',
                         }}>
                             <div style={{
@@ -154,7 +181,7 @@ export default function Dashboard() {
                                 <i className={s.icon}></i>
                             </div>
                             <div>
-                                <div style={{ fontSize: 26, fontWeight: 800, color: NAVY, lineHeight: 1 }}>{s.value}</div>
+                                <div className="dash-stat-val" style={{ fontWeight: 800, color: NAVY, lineHeight: 1 }}>{s.value}</div>
                                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>{s.sub}</div>
                             </div>
                         </div>
@@ -210,7 +237,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* ── MAIN CONTENT: Recent Videos + Progress ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
+                <div className="dash-main-grid">
 
                     {/* Recent Videos */}
                     <div>

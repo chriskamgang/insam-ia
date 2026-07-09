@@ -5,6 +5,40 @@ import api from '../api';
 
 const W = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' };
 
+const cdCSS = `
+.cd-hero-flex { display:flex; align-items:center; gap:32px; }
+.cd-hero-icon { width:88px; height:88px; border-radius:22px; font-size:36px; flex-shrink:0; }
+.cd-hero-title { font-size:38px; }
+.cd-stats-row { display:flex; justify-content:center; gap:0; }
+.cd-stat-item { flex:1; padding:22px 24px; display:flex; align-items:center; gap:14px; }
+.cd-grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
+.cd-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.cd-cta-bar { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:36px 40px; }
+.cd-cta-btns { display:flex; gap:12px; }
+
+@media(max-width:1024px){
+  .cd-grid4 { grid-template-columns:repeat(2,1fr); }
+  .cd-grid3 { grid-template-columns:repeat(2,1fr); }
+}
+@media(max-width:768px){
+  .cd-hero-flex { flex-direction:column; align-items:flex-start; gap:16px; }
+  .cd-hero-icon { width:60px; height:60px; font-size:24px; border-radius:16px; }
+  .cd-hero-title { font-size:26px; }
+  .cd-stats-row { flex-wrap:wrap; }
+  .cd-stat-item { border-right:none!important; flex:none; width:50%; }
+  .cd-grid4 { grid-template-columns:repeat(2,1fr); gap:12px; }
+  .cd-grid3 { grid-template-columns:1fr; }
+  .cd-cta-bar { flex-direction:column; align-items:flex-start; padding:24px 20px; }
+  .cd-cta-btns { width:100%; }
+  .cd-cta-btns a { flex:1; justify-content:center; text-align:center; }
+}
+@media(max-width:480px){
+  .cd-grid4 { grid-template-columns:1fr; }
+  .cd-stat-item { width:100%; }
+  .cd-hero-title { font-size:22px; }
+}
+`;
+
 export default function CategoryDetail() {
     const { id } = useParams();
     const { t } = useLang();
@@ -120,9 +154,9 @@ export default function CategoryDetail() {
                         <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>{category.name}</span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+                    <div className="cd-hero-flex">
                         {/* Icon */}
-                        <div style={{ width: 88, height: 88, borderRadius: 22, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, color: 'white', flexShrink: 0 }}>
+                        <div className="cd-hero-icon" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                             <i className={category.icon || 'fas fa-laptop-code'}></i>
                         </div>
 
@@ -131,7 +165,7 @@ export default function CategoryDetail() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: '#5BBCB4', textTransform: 'uppercase', background: 'rgba(91,188,180,0.15)', padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(91,188,180,0.3)' }}>Specialite</span>
                             </div>
-                            <h1 style={{ fontSize: 38, fontWeight: 800, color: 'white', margin: '0 0 14px', lineHeight: 1.2 }}>{category.name}</h1>
+                            <h1 className="cd-hero-title" style={{ fontWeight: 800, color: 'white', margin: '0 0 14px', lineHeight: 1.2 }}>{category.name}</h1>
                             {category.description && (
                                 <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.75)', lineHeight: 1.75, maxWidth: 620, margin: 0 }}>
                                     {category.description}
@@ -144,9 +178,9 @@ export default function CategoryDetail() {
 
             {/* === STATS ROW === */}
             <section style={{ background: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', position: 'relative', zIndex: 10 }}>
-                <div style={{ ...W, display: 'flex', justifyContent: 'center', gap: 0 }}>
+                <div className="cd-stats-row" style={{ ...W }}>
                     {stats.map((s, i) => (
-                        <div key={i} style={{ flex: 1, padding: '22px 24px', display: 'flex', alignItems: 'center', gap: 14, borderRight: i < stats.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                        <div key={i} className="cd-stat-item" style={{ borderRight: i < stats.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                             <div style={{ width: 46, height: 46, borderRadius: 12, background: `${s.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color, fontSize: 18, flexShrink: 0 }}>
                                 <i className={s.icon}></i>
                             </div>
@@ -163,7 +197,7 @@ export default function CategoryDetail() {
             <section style={{ padding: '48px 0 0' }}>
                 <div style={W}>
                     <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1B2A4A', marginBottom: 24 }}>Contenu de la formation</h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
+                    <div className="cd-grid4">
                         {actionCards.map((card) => (
                             card.external ? (
                                 <Link
@@ -228,7 +262,7 @@ export default function CategoryDetail() {
                                     <p style={{ fontSize: 14 }}>Aucun debouche renseigne pour le moment.</p>
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                                <div className="cd-grid3">
                                     {debouches.map((d, i) => (
                                         <div key={d.id || i} style={{ background: '#fafafa', borderRadius: 14, padding: '20px 18px', border: '1px solid #f3f4f6', transition: 'all .2s' }}
                                             onMouseEnter={e => { e.currentTarget.style.borderColor = '#E74C3C40'; e.currentTarget.style.background = '#fff'; }}
@@ -275,7 +309,7 @@ export default function CategoryDetail() {
                                     <p style={{ fontSize: 14 }}>Aucune certification renseignee pour le moment.</p>
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                                <div className="cd-grid3">
                                     {category.certifications.map((c, i) => (
                                         <div key={c.id || i} style={{ background: '#fafafa', borderRadius: 14, padding: '20px 18px', border: '1px solid #f3f4f6' }}>
                                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
@@ -306,7 +340,7 @@ export default function CategoryDetail() {
                             <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1B2A4A', margin: 0 }}>Debouches professionnels</h2>
                             <span style={{ fontSize: 13, color: '#9ca3af' }}>{debouches.length} metier{debouches.length > 1 ? 's' : ''}</span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                        <div className="cd-grid3">
                             {debouches.map((d, i) => (
                                 <div key={d.id || i} style={{ background: 'white', borderRadius: 16, padding: '22px 20px', border: '1px solid #f0f0f0', transition: 'all .2s', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}
                                     onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(231,76,60,0.1)'; e.currentTarget.style.borderColor = '#E74C3C40'; }}
@@ -333,12 +367,12 @@ export default function CategoryDetail() {
             {/* === QUICK LINKS FOOTER === */}
             <section style={{ padding: '48px 0 60px' }}>
                 <div style={W}>
-                    <div style={{ background: 'linear-gradient(135deg, #1B2A4A, #2d4270)', borderRadius: 20, padding: '36px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+                    <div className="cd-cta-bar" style={{ background: 'linear-gradient(135deg, #1B2A4A, #2d4270)', borderRadius: 20 }}>
                         <div>
                             <h3 style={{ fontSize: 20, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>Commencer l'apprentissage</h3>
                             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>Acces aux videos TP et au parcours de formation</p>
                         </div>
-                        <div style={{ display: 'flex', gap: 12 }}>
+                        <div className="cd-cta-btns">
                             <Link to={`/formations/${id}/videos`} style={{ background: '#5BBCB4', color: 'white', padding: '12px 26px', borderRadius: 50, fontWeight: 600, textDecoration: 'none', fontSize: 14, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <i className="fas fa-play-circle"></i>
                                 Videos TP
@@ -352,7 +386,7 @@ export default function CategoryDetail() {
                 </div>
             </section>
 
-            <style>{`
+            <style>{cdCSS}{`
                 @keyframes spin { to { transform: rotate(360deg); } }
             `}</style>
         </div>
