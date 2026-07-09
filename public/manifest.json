@@ -1,0 +1,22 @@
+{
+    "name": "INSAM-IA",
+    "short_name": "INSAM-IA",
+    "description": "Plateforme educative intelligente - Institut Universitaire et Strategique de l'Estuaire",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#49BBBD",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

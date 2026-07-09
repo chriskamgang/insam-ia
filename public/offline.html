@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hors ligne - INSAM-IA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #49BBBD22 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            padding: 24px;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 480px;
+            width: 100%;
+        }
+
+        .logo {
+            width: 96px;
+            height: 96px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, #49BBBD, #0f172a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 32px;
+            box-shadow: 0 8px 32px rgba(73, 187, 189, 0.35);
+        }
+
+        .logo span {
+            font-size: 36px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -1px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(73, 187, 189, 0.15);
+            border: 1px solid rgba(73, 187, 189, 0.4);
+            border-radius: 999px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #49BBBD;
+            margin-bottom: 24px;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #49BBBD;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            line-height: 1.2;
+        }
+
+        h1 span {
+            color: #49BBBD;
+        }
+
+        p.subtitle {
+            font-size: 15px;
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        .info-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-align: left;
+        }
+
+        .info-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(73, 187, 189, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 18px;
+        }
+
+        .info-card-text strong {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 2px;
+        }
+
+        .info-card-text span {
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .retry-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #49BBBD, #3aa8aa);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 14px 32px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: opacity 0.2s, transform 0.2s;
+            box-shadow: 0 4px 16px rgba(73, 187, 189, 0.4);
+        }
+
+        .retry-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .retry-btn:active {
+            transform: translateY(0);
+        }
+
+        footer {
+            margin-top: 48px;
+            font-size: 12px;
+            color: #334155;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <span>IA</span>
+        </div>
+
+        <div class="badge">
+            <div class="badge-dot"></div>
+            Mode hors ligne
+        </div>
+
+        <h1>Vous etes <span>hors ligne</span></h1>
+
+        <p class="subtitle">
+            Pas de connexion internet detectee. Le contenu deja consulte reste disponible grace au cache de l'application.
+        </p>
+
+        <div class="info-cards">
+            <div class="info-card">
+                <div class="info-card-icon">&#128218;</div>
+                <div class="info-card-text">
+                    <strong>Cours mis en cache</strong>
+                    <span>Les categories et videos precedemment chargees restent accessibles.</span>
+                </div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-icon">&#9997;</div>
+                <div class="info-card-text">
+                    <strong>Fiches de revision</strong>
+                    <span>Vos fiches consultees sont disponibles hors connexion.</span>
+                </div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-icon">&#128203;</div>
+                <div class="info-card-text">
+                    <strong>Examens consultes</strong>
+                    <span>Les listes d'examens chargees anterieurement sont en cache.</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="retry-btn" onclick="window.location.reload()">
+            &#8635; Reessayer la connexion
+        </button>
+
+        <footer>
+            INSAM-IA &mdash; Institut Universitaire et Strategique de l'Estuaire
+        </footer>
+    </div>
+</body>
+</html>
