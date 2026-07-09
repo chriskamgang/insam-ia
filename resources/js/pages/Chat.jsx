@@ -7,6 +7,22 @@ const TEAL = '#5BBCB4';
 const NAVY = '#1B2A4A';
 const W = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' };
 
+const chatCSS = `
+.chat-title-bar { display:flex; align-items:center; justify-content:space-between; height:60px; }
+.chat-title-text { font-size:17px; }
+.chat-bubble-max { max-width:68%; }
+.chat-suggestions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+@media(max-width:768px){
+  .chat-title-text { font-size:14px; }
+  .chat-bubble-max { max-width:85%; }
+  .chat-suggestions button { font-size:11px!important; padding:6px 12px!important; }
+}
+@media(max-width:480px){
+  .chat-bubble-max { max-width:90%; }
+  .chat-title-bar { height:auto; padding:10px 0; flex-wrap:wrap; gap:8px; }
+}
+`;
+
 function TypingIndicator() {
     return (
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 18 }}>
@@ -58,7 +74,7 @@ function MessageBubble({ msg }) {
             </div>
 
             {/* Bubble */}
-            <div style={{ maxWidth: '68%' }}>
+            <div className="chat-bubble-max">
                 <div style={{
                     background: isUser ? TEAL : '#f1f5f9',
                     color: isUser ? 'white' : '#1e293b',
@@ -237,10 +253,11 @@ export default function Chat() {
 
     return (
         <div style={{ background: '#F8FAFB', minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
+            <style>{chatCSS}</style>
 
             {/* ── Title Bar ── */}
             <div style={{ background: 'white', borderBottom: '1px solid #f0f0f0', padding: '0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                <div style={{ ...W, display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
+                <div className="chat-title-bar" style={{ ...W }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{
                             width: 40, height: 40, borderRadius: 12,
@@ -251,7 +268,7 @@ export default function Chat() {
                             <i className="fas fa-robot"></i>
                         </div>
                         <div>
-                            <h1 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0 }}>
+                            <h1 className="chat-title-text" style={{ fontWeight: 800, color: NAVY, margin: 0 }}>
                                 Assistant IA INSAM
                             </h1>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
@@ -260,15 +277,7 @@ export default function Chat() {
                             </div>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{
-                            fontSize: 11, background: '#e8f8f5', color: TEAL,
-                            padding: '4px 10px', borderRadius: 20, fontWeight: 600,
-                        }}>
-                            <i className="fas fa-bolt" style={{ marginRight: 4 }}></i>
-                            Gemini 2.5 Flash
-                        </span>
-                    </div>
+                    <div></div>
                 </div>
             </div>
 
@@ -308,7 +317,7 @@ export default function Chat() {
                             <p style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.7, maxWidth: 480, margin: '0 auto 28px' }}>
                                 Posez-moi vos questions sur vos cours, vos examens ou vos formations. Je suis disponible 24h/7 pour vous aider.
                             </p>
-                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                            <div className="chat-suggestions">
                                 {[
                                     'Explique-moi les reseaux TCP/IP',
                                     'Comment reussir mon examen de Linux ?',
