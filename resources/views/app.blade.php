@@ -4,7 +4,24 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>INSAM-IA</title>
+    <title>INSAM-IA - Votre assistant académique intelligent</title>
+    <meta name="description" content="INSAM-IA est votre plateforme d'apprentissage intelligent. Accédez à vos cours, suivez votre progression et boostez vos résultats avec l'aide de l'IA.">
+
+    <!-- Open Graph / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://insam-ia.com">
+    <meta property="og:title" content="INSAM-IA - Votre assistant académique intelligent">
+    <meta property="og:description" content="Plateforme d'apprentissage intelligent de l'INSAM. Accédez à vos cours, suivez votre progression et boostez vos résultats avec l'aide de l'IA.">
+    <meta property="og:image" content="https://insam-ia.com/images/logo.jpeg">
+    <meta property="og:site_name" content="INSAM-IA">
+    <meta property="og:locale" content="fr_FR">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="INSAM-IA - Votre assistant académique intelligent">
+    <meta name="twitter:description" content="Plateforme d'apprentissage intelligent de l'INSAM. Cours, progression, IA.">
+    <meta name="twitter:image" content="https://insam-ia.com/images/logo.jpeg">
+
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#49BBBD">
     <meta name="apple-mobile-web-app-capable" content="yes">
