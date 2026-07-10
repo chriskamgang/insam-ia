@@ -166,8 +166,8 @@ export default function CategoryRoadmap() {
             api.get(`/api/public/categories/${id}/roadmap`),
         ])
             .then(([catRes, roadmapRes]) => {
-                setCategory(catRes.data.data || catRes.data);
-                const raw = roadmapRes.data.data || roadmapRes.data || [];
+                setCategory(catRes.data.category || catRes.data.data || catRes.data);
+                const raw = roadmapRes.data.roadmap || roadmapRes.data.data || roadmapRes.data || [];
                 setSteps(Array.isArray(raw) ? raw : raw.steps || []);
             })
             .catch(() => setError('Impossible de charger le parcours.'))
