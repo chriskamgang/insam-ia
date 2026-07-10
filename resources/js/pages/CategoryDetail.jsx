@@ -46,6 +46,7 @@ export default function CategoryDetail() {
     const [debouches, setDebouches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(null);
+    const [expandedDebouche, setExpandedDebouche] = useState(null);
 
     useEffect(() => {
         setLoading(true);
@@ -263,24 +264,54 @@ export default function CategoryDetail() {
                                 </div>
                             ) : (
                                 <div className="cd-grid3">
-                                    {debouches.map((d, i) => (
-                                        <div key={d.id || i} style={{ background: '#fafafa', borderRadius: 14, padding: '20px 18px', border: '1px solid #f3f4f6', transition: 'all .2s' }}
-                                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#E74C3C40'; e.currentTarget.style.background = '#fff'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.borderColor = '#f3f4f6'; e.currentTarget.style.background = '#fafafa'; }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                                                <div style={{ width: 42, height: 42, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#E74C3C', flexShrink: 0 }}>
-                                                    <i className={d.icon || 'fas fa-briefcase'}></i>
+                                    {debouches.map((d, i) => {
+                                        const isOpen = expandedDebouche === (d.id || i);
+                                        return (
+                                            <div
+                                                key={d.id || i}
+                                                onClick={() => setExpandedDebouche(isOpen ? null : (d.id || i))}
+                                                style={{ background: isOpen ? '#fff9f8' : '#fafafa', borderRadius: 14, padding: '20px 18px', border: isOpen ? '1.5px solid #E74C3C40' : '1px solid #f3f4f6', transition: 'all .25s', cursor: 'pointer', boxShadow: isOpen ? '0 4px 16px rgba(231,76,60,0.08)' : 'none' }}
+                                                onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.borderColor = '#E74C3C40'; e.currentTarget.style.background = '#fff'; } }}
+                                                onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.borderColor = '#f3f4f6'; e.currentTarget.style.background = '#fafafa'; } }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                                                    <div style={{ width: 42, height: 42, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#E74C3C', flexShrink: 0 }}>
+                                                        <i className={d.icon || 'fas fa-briefcase'}></i>
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1B2A4A', margin: '0 0 6px' }}>{d.title}</h4>
+                                                            <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 11, color: '#9ca3af' }}></i>
+                                                        </div>
+                                                        {!isOpen && d.description && (
+                                                            <p style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{d.description}</p>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1B2A4A', margin: '0 0 6px' }}>{d.title}</h4>
-                                                    {d.description && (
-                                                        <p style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: 0 }}>{d.description}</p>
-                                                    )}
-                                                </div>
+
+                                                {isOpen && (
+                                                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #f3e8e6' }}>
+                                                        {d.description && (
+                                                            <p style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.75, margin: '0 0 10px' }}>{d.description}</p>
+                                                        )}
+                                                        {d.salary_range && (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                                <i className="fas fa-money-bill-wave" style={{ fontSize: 12, color: '#16a34a' }}></i>
+                                                                <span style={{ fontSize: 12, color: '#6b7280' }}>Salaire: {d.salary_range}</span>
+                                                            </div>
+                                                        )}
+                                                        {d.skills && (
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                                                {(Array.isArray(d.skills) ? d.skills : d.skills.split(',')).map(s => s.trim()).filter(Boolean).map((skill, si) => (
+                                                                    <span key={si} style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, background: '#fef2f2', color: '#E74C3C', border: '1px solid #fecaca' }}>{skill}</span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -341,24 +372,54 @@ export default function CategoryDetail() {
                             <span style={{ fontSize: 13, color: '#9ca3af' }}>{debouches.length} metier{debouches.length > 1 ? 's' : ''}</span>
                         </div>
                         <div className="cd-grid3">
-                            {debouches.map((d, i) => (
-                                <div key={d.id || i} style={{ background: 'white', borderRadius: 16, padding: '22px 20px', border: '1px solid #f0f0f0', transition: 'all .2s', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}
-                                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(231,76,60,0.1)'; e.currentTarget.style.borderColor = '#E74C3C40'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.03)'; e.currentTarget.style.borderColor = '#f0f0f0'; }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                                        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#E74C3C', flexShrink: 0 }}>
-                                            <i className={d.icon || 'fas fa-briefcase'}></i>
+                            {debouches.map((d, i) => {
+                                const isOpen = expandedDebouche === (d.id || i);
+                                return (
+                                    <div
+                                        key={d.id || i}
+                                        onClick={() => setExpandedDebouche(isOpen ? null : (d.id || i))}
+                                        style={{ background: isOpen ? '#fff9f8' : 'white', borderRadius: 16, padding: '22px 20px', border: isOpen ? '1.5px solid #E74C3C40' : '1px solid #f0f0f0', transition: 'all .25s', boxShadow: isOpen ? '0 8px 28px rgba(231,76,60,0.12)' : '0 1px 4px rgba(0,0,0,0.03)', cursor: 'pointer' }}
+                                        onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.boxShadow = '0 8px 24px rgba(231,76,60,0.1)'; e.currentTarget.style.borderColor = '#E74C3C40'; } }}
+                                        onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.03)'; e.currentTarget.style.borderColor = '#f0f0f0'; } }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                                            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#E74C3C', flexShrink: 0 }}>
+                                                <i className={d.icon || 'fas fa-briefcase'}></i>
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1B2A4A', margin: '0 0 6px' }}>{d.title}</h4>
+                                                    <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 11, color: '#9ca3af', transition: 'transform .2s' }}></i>
+                                                </div>
+                                                {!isOpen && d.description && (
+                                                    <p style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{d.description}</p>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1B2A4A', margin: '0 0 6px' }}>{d.title}</h4>
-                                            {d.description && (
-                                                <p style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: 0 }}>{d.description}</p>
-                                            )}
-                                        </div>
+
+                                        {isOpen && (
+                                            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f3e8e6' }}>
+                                                {d.description && (
+                                                    <p style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.75, margin: '0 0 12px' }}>{d.description}</p>
+                                                )}
+                                                {d.salary_range && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                        <i className="fas fa-money-bill-wave" style={{ fontSize: 12, color: '#16a34a' }}></i>
+                                                        <span style={{ fontSize: 12, color: '#6b7280' }}>Salaire: {d.salary_range}</span>
+                                                    </div>
+                                                )}
+                                                {d.skills && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                                        {(Array.isArray(d.skills) ? d.skills : d.skills.split(',')).map(s => s.trim()).filter(Boolean).map((skill, si) => (
+                                                            <span key={si} style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, background: '#fef2f2', color: '#E74C3C', border: '1px solid #fecaca' }}>{skill}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </section>
