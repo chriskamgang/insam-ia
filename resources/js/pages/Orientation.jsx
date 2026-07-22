@@ -53,11 +53,34 @@ export default function Orientation() {
             .finally(() => setLoading(false));
     };
 
+    // Build a mapping from score names (possibly AI-generated) to actual filiere objects
+    const matchFiliere = (scoreName) => {
+        // Exact match first
+        let found = filieres.find(f => f.name === scoreName);
+        if (found) return found;
+        // Case-insensitive match
+        const lower = scoreName.toLowerCase();
+        found = filieres.find(f => f.name.toLowerCase() === lower);
+        if (found) return found;
+        // Partial match - score name contains filiere name or vice versa
+        found = filieres.find(f => lower.includes(f.name.toLowerCase()) || f.name.toLowerCase().includes(lower));
+        if (found) return found;
+        // Keyword match
+        const keywords = lower.split(/[\s&,/]+/).filter(w => w.length > 3);
+        let bestMatch = null, bestCount = 0;
+        filieres.forEach(f => {
+            const fLower = f.name.toLowerCase();
+            const count = keywords.filter(k => fLower.includes(k)).length;
+            if (count > bestCount) { bestCount = count; bestMatch = f; }
+        });
+        return bestMatch;
+    };
+
     const answerQuestion = (qIndex, optionIndex) => {
         const newAnswers = { ...answers, [qIndex]: optionIndex };
         setAnswers(newAnswers);
 
-        // Calculate scores
+        // Calculate scores per filiere ID (not name) for accurate matching
         const q = questions[qIndex];
         const optKey = `option_${optionIndex}`;
         const optScores = q.scores?.[optKey] || {};
@@ -83,11 +106,29 @@ export default function Orientation() {
     };
 
     const finishFiliereQuiz = () => {
-        // Find top filiere
-        const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-        const topName = sorted[0]?.[0];
-        const found = filieres.find(f => f.name === topName);
+        // Map score names to actual filiere objects and aggregate by filiere ID
+        const filiereScores = {};
+        Object.entries(scores).forEach(([scoreName, val]) => {
+            const f = matchFiliere(scoreName);
+            if (f) {
+                filiereScores[f.id] = (filiereScores[f.id] || 0) + val;
+            }
+        });
+
+        // Find top filiere by aggregated score
+        const sorted = Object.entries(filiereScores).sort((a, b) => b[1] - a[1]);
+        const topId = sorted[0]?.[0];
+        const found = filieres.find(f => String(f.id) === String(topId));
         setTopFiliere(found || filieres[0]);
+
+        // Update scores to use filiere names for display
+        const displayScores = {};
+        Object.entries(filiereScores).forEach(([id, val]) => {
+            const f = filieres.find(fil => String(fil.id) === String(id));
+            if (f) displayScores[f.name] = val;
+        });
+        setScores(displayScores);
+
         setStep('filiere_result');
     };
 
@@ -110,6 +151,24 @@ export default function Orientation() {
             })
             .catch(() => {})
             .finally(() => setLoading(false));
+    };
+
+    const matchSpecialite = (scoreName) => {
+        let found = specialites.find(s => s.name === scoreName);
+        if (found) return found;
+        const lower = scoreName.toLowerCase();
+        found = specialites.find(s => s.name.toLowerCase() === lower);
+        if (found) return found;
+        found = specialites.find(s => lower.includes(s.name.toLowerCase()) || s.name.toLowerCase().includes(lower));
+        if (found) return found;
+        const keywords = lower.split(/[\s&,/]+/).filter(w => w.length > 3);
+        let bestMatch = null, bestCount = 0;
+        specialites.forEach(s => {
+            const sLower = s.name.toLowerCase();
+            const count = keywords.filter(k => sLower.includes(k)).length;
+            if (count > bestCount) { bestCount = count; bestMatch = s; }
+        });
+        return bestMatch;
     };
 
     const answerSpecQuestion = (qIndex, optionIndex) => {
@@ -139,10 +198,26 @@ export default function Orientation() {
     };
 
     const finishSpecialiteQuiz = () => {
-        const sorted = Object.entries(specScores).sort((a, b) => b[1] - a[1]);
-        const topName = sorted[0]?.[0];
-        const found = specialites.find(s => s.name === topName);
+        const specScoresById = {};
+        Object.entries(specScores).forEach(([scoreName, val]) => {
+            const s = matchSpecialite(scoreName);
+            if (s) {
+                specScoresById[s.id] = (specScoresById[s.id] || 0) + val;
+            }
+        });
+
+        const sorted = Object.entries(specScoresById).sort((a, b) => b[1] - a[1]);
+        const topId = sorted[0]?.[0];
+        const found = specialites.find(s => String(s.id) === String(topId));
         setTopSpecialite(found || specialites[0]);
+
+        const displayScores = {};
+        Object.entries(specScoresById).forEach(([id, val]) => {
+            const s = specialites.find(sp => String(sp.id) === String(id));
+            if (s) displayScores[s.name] = val;
+        });
+        setSpecScores(displayScores);
+
         setStep('specialite_result');
     };
 
@@ -370,11 +445,11 @@ export default function Orientation() {
                                 {currentQ === questions.length - 1 ? (
                                     <button
                                         onClick={finishFiliereQuiz}
-                                        disabled={Object.keys(answers).length < questions.length}
+                                        disabled={answers[currentQ] === undefined}
                                         style={{
-                                            background: Object.keys(answers).length < questions.length ? '#d1d5db' : TEAL,
+                                            background: answers[currentQ] === undefined ? '#d1d5db' : TEAL,
                                             color: 'white', border: 'none', borderRadius: 10,
-                                            padding: '10px 24px', cursor: Object.keys(answers).length < questions.length ? 'not-allowed' : 'pointer',
+                                            padding: '10px 24px', cursor: answers[currentQ] === undefined ? 'not-allowed' : 'pointer',
                                             fontSize: 13, fontWeight: 600,
                                         }}
                                     >
@@ -546,11 +621,11 @@ export default function Orientation() {
                                 {currentQ === specQuestions.length - 1 ? (
                                     <button
                                         onClick={finishSpecialiteQuiz}
-                                        disabled={Object.keys(specAnswers).length < specQuestions.length}
+                                        disabled={specAnswers[currentQ] === undefined}
                                         style={{
-                                            background: Object.keys(specAnswers).length < specQuestions.length ? '#d1d5db' : TEAL,
+                                            background: specAnswers[currentQ] === undefined ? '#d1d5db' : TEAL,
                                             color: 'white', border: 'none', borderRadius: 10,
-                                            padding: '10px 24px', cursor: Object.keys(specAnswers).length < specQuestions.length ? 'not-allowed' : 'pointer',
+                                            padding: '10px 24px', cursor: specAnswers[currentQ] === undefined ? 'not-allowed' : 'pointer',
                                             fontSize: 13, fontWeight: 600,
                                         }}
                                     >

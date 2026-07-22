@@ -23,10 +23,15 @@ class OrientationService
 
         $systemPrompt = "Tu es un conseiller d'orientation scolaire expert au Cameroun. Tu generes des questions pertinentes pour orienter les etudiants vers la bonne filiere. Reponds UNIQUEMENT en JSON strict.";
 
+        $filiereNames = $filieres->pluck('name')->implode('", "');
+
         $userMessage = <<<PROMPT
 Genere 6 questions d'orientation pour aider un etudiant a choisir sa filiere a l'ecole "{$ecole->name}".
 
-Filieres disponibles:
+Voici les NOMS EXACTS des filieres (a copier-coller tels quels dans les scores):
+["{$filiereNames}"]
+
+Liste detaillee:
 {$filiereList}
 
 Chaque question doit avoir 4 options de reponse. Chaque option doit favoriser certaines filieres.
@@ -35,17 +40,17 @@ Reponds en JSON strict avec ce format:
 [
   {
     "question": "Quelle activite vous interesse le plus ?",
-    "options": ["Programmer des logiciels", "Gerer une entreprise", "Soigner des patients", "Construire des batiments"],
+    "options": ["Option A", "Option B", "Option C", "Option D"],
     "scores": {
-      "option_0": {"Informatique & Reseaux": 3, "Genie Logiciel": 3},
-      "option_1": {"Comptabilite & Gestion": 3, "Marketing & Commerce": 2},
-      "option_2": {"Sciences Infirmieres": 3, "Techniques de Laboratoire": 2},
-      "option_3": {"Genie Civil": 3}
+      "option_0": {"{$filieres->first()->name}": 3},
+      "option_1": {"{$filieres->skip(1)->first()?->name}": 3},
+      "option_2": {"{$filieres->skip(2)->first()?->name}": 3},
+      "option_3": {"{$filieres->skip(3)->first()?->name}": 3}
     }
   }
 ]
 
-IMPORTANT: Les noms dans "scores" doivent correspondre EXACTEMENT aux noms des filieres listees ci-dessus.
+REGLE ABSOLUE: Dans les "scores", les noms des filieres doivent etre COPIES EXACTEMENT depuis la liste ci-dessus. Ne modifie PAS les noms, ne les abrege pas, ne les traduis pas.
 Reponds UNIQUEMENT avec le JSON, sans texte avant ou apres.
 PROMPT;
 
@@ -70,10 +75,15 @@ PROMPT;
 
         $systemPrompt = "Tu es un conseiller d'orientation scolaire expert au Cameroun. Tu generes des questions pertinentes pour orienter les etudiants vers la bonne specialite. Reponds UNIQUEMENT en JSON strict.";
 
+        $specNames = $specialites->pluck('name')->implode('", "');
+
         $userMessage = <<<PROMPT
 Genere 5 questions d'orientation pour aider un etudiant de la filiere "{$filiere->name}" ({$ecoleName}) a choisir sa specialite.
 
-Specialites disponibles:
+Voici les NOMS EXACTS des specialites (a copier-coller tels quels dans les scores):
+["{$specNames}"]
+
+Liste detaillee:
 {$specList}
 
 Chaque question doit avoir 3-4 options de reponse. Chaque option doit favoriser certaines specialites.
@@ -81,17 +91,17 @@ Chaque question doit avoir 3-4 options de reponse. Chaque option doit favoriser 
 Reponds en JSON strict avec ce format:
 [
   {
-    "question": "Quel aspect de l'informatique vous attire le plus ?",
-    "options": ["Les reseaux et la securite", "Le developpement d'applications", "L'automatisation industrielle"],
+    "question": "Quel aspect vous attire le plus ?",
+    "options": ["Option A", "Option B", "Option C"],
     "scores": {
-      "option_0": {"Informatique & Reseaux": 3},
-      "option_1": {"Genie Logiciel": 3},
-      "option_2": {"Informatique Industrielle & Automatisme": 3}
+      "option_0": {"{$specialites->first()->name}": 3},
+      "option_1": {"{$specialites->skip(1)->first()?->name}": 3},
+      "option_2": {"{$specialites->skip(2)->first()?->name}": 3}
     }
   }
 ]
 
-IMPORTANT: Les noms dans "scores" doivent correspondre EXACTEMENT aux noms des specialites listees ci-dessus.
+REGLE ABSOLUE: Dans les "scores", les noms des specialites doivent etre COPIES EXACTEMENT depuis la liste ci-dessus. Ne modifie PAS les noms, ne les abrege pas, ne les traduis pas.
 Reponds UNIQUEMENT avec le JSON, sans texte avant ou apres.
 PROMPT;
 
