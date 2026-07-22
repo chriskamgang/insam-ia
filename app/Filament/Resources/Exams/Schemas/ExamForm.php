@@ -18,43 +18,23 @@ class ExamForm
             ->components([
                 Section::make('Informations de l\'epreuve')
                     ->schema([
-                        Select::make('exam_type')
-                            ->options([
-                                'bts' => 'Epreuve BTS',
-                                'licence' => 'Epreuve Licence / Master / Autre',
-                            ])
-                            ->default('bts')
-                            ->required()
-                            ->label('Type d\'epreuve')
-                            ->reactive(),
                         TextInput::make('title')
                             ->required()
                             ->label('Titre de l\'epreuve'),
                         Select::make('category_id')
                             ->relationship('category', 'name')
-                            ->label('Specialite')
+                            ->label('Categorie / Formation')
                             ->searchable()
                             ->preload()
                             ->nullable(),
-
-                        // Champs Licence/Master uniquement
-                        Select::make('ue_id')
-                            ->relationship('ue', 'nom')
-                            ->label('Unite d\'Enseignement')
-                            ->searchable()
-                            ->preload()
-                            ->nullable()
-                            ->visible(fn ($get) => $get('exam_type') !== 'bts'),
                         Select::make('filiere')
                             ->options(fn () => Specialite::orderBy('name')->pluck('name', 'name')->toArray())
-                            ->label('Specialite')
+                            ->label('Specialite (Filiere)')
                             ->searchable()
-                            ->default(null)
-                            ->visible(fn ($get) => $get('exam_type') !== 'bts'),
+                            ->nullable(),
                         TextInput::make('matiere')
                             ->label('Matiere')
-                            ->default(null)
-                            ->visible(fn ($get) => $get('exam_type') !== 'bts'),
+                            ->nullable(),
                         Select::make('niveau')
                             ->options([
                                 'BTS 1ere annee' => 'BTS 1ere annee',
@@ -66,28 +46,12 @@ class ExamForm
                                 'Master 2' => 'Master 2',
                             ])
                             ->label('Niveau')
-                            ->default(null)
-                            ->visible(fn ($get) => $get('exam_type') !== 'bts'),
+                            ->nullable(),
                         TextInput::make('annee')
                             ->label('Annee scolaire')
                             ->placeholder('Ex: 2024-2025')
-                            ->default(null)
-                            ->visible(fn ($get) => $get('exam_type') !== 'bts'),
-                    ])->columns(2),
-
-                // BTS: multi-select UEs
-                Section::make('Unites d\'Enseignement couvertes')
-                    ->description('Selectionnez les UE que cette epreuve BTS couvre')
-                    ->schema([
-                        Select::make('unitesEnseignement')
-                            ->relationship('unitesEnseignement', 'nom')
-                            ->multiple()
-                            ->label('UE couvertes')
-                            ->searchable()
-                            ->preload()
                             ->nullable(),
-                    ])
-                    ->visible(fn ($get) => $get('exam_type') === 'bts'),
+                    ])->columns(2),
 
                 Section::make('Fichiers')
                     ->schema([
@@ -102,7 +66,7 @@ class ExamForm
                             ->directory('exams/corrections')
                             ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                             ->maxSize(20480)
-                            ->default(null),
+                            ->nullable(),
                         Toggle::make('is_corrected')
                             ->label('Correction disponible'),
                     ])->columns(2),
