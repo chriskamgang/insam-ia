@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\ExamPredictionController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\MarketplaceController;
 use App\Http\Controllers\Api\CommunityController;
+use App\Http\Controllers\Api\CourseProgressController;
+use App\Http\Controllers\Api\RevisionPlanController;
 use Illuminate\Support\Facades\Route;
 
 // Auth
@@ -30,12 +32,25 @@ Route::prefix('public')->group(function () {
     Route::get('/categories/{id}/videos', [PublicController::class, 'categoryVideos']);
     Route::get('/categories/{id}/roadmap', [PublicController::class, 'categoryRoadmap']);
     Route::get('/categories/{id}/debouches', [PublicController::class, 'categoryDebouches']);
+    Route::get('/debouches/{id}', [PublicController::class, 'deboucheShow']);
+    Route::get('/roadmap-steps/{id}', [PublicController::class, 'roadmapStepShow']);
     Route::get('/categories/{id}/certifications', [PublicController::class, 'categoryCertifications']);
     Route::get('/videos', [PublicController::class, 'allVideos']);
     Route::get('/videos/{id}', [PublicController::class, 'videoShow']);
     Route::get('/documents', [PublicController::class, 'documents']);
     Route::get('/categories/{id}/formations', [PublicController::class, 'insamtechsFormations']);
+    Route::get('/recent-formations', [PublicController::class, 'recentFormations']);
+    Route::get('/hero-media', [PublicController::class, 'heroMedia']);
+
+    // Orientation
+    Route::get('/orientation/ecoles', [PublicController::class, 'orientationEcoles']);
+    Route::get('/orientation/ecoles/{id}/questions', [PublicController::class, 'orientationFiliereQuestions']);
+    Route::get('/orientation/filieres/{id}/questions', [PublicController::class, 'orientationSpecialiteQuestions']);
+    Route::get('/orientation/filieres/{id}/specialites', [PublicController::class, 'orientationSpecialites']);
 });
+
+// View file as PDF (converts doc/docx via LibreOffice)
+Route::get('/exams/view-pdf', [ExamController::class, 'viewPdf']);
 
 // Plans (public)
 Route::get('/plans', [SubscriptionController::class, 'plans']);
@@ -74,6 +89,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/exams/{id}/download', [ExamController::class, 'download']);
     Route::get('/exams/{id}/ai-correction', [ExamController::class, 'aiCorrection']);
     Route::post('/exams/upload', [ExamController::class, 'upload']);
+    Route::post('/exams/correct', [ExamController::class, 'correctAnswers']);
+    Route::post('/exams/generate-exercises', [ExamController::class, 'generateExercises']);
+    Route::post('/exams/submit-and-correct', [ExamController::class, 'submitAndCorrect']);
+    Route::post('/exams/summarize-course', [ExamController::class, 'summarizeCourse']);
+    Route::post('/exams/generate-quiz', [ExamController::class, 'generateQuiz']);
 
     // Fiches de révision IA
     Route::get('/revision-cards', [RevisionCardController::class, 'index']);
@@ -103,6 +123,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/progress/categories', [ProgressController::class, 'byCategory']);
     Route::get('/progress/strengths', [ProgressController::class, 'strengths']);
     Route::get('/progress/timeline', [ProgressController::class, 'timeline']);
+
+    // Progression cours / BTS / UE
+    Route::post('/course-progress', [CourseProgressController::class, 'store']);
+    Route::post('/course-progress/mark-completed', [CourseProgressController::class, 'markCompleted']);
+    Route::get('/course-progress/check-completed', [CourseProgressController::class, 'checkCompleted']);
+    Route::get('/course-progress/bts', [CourseProgressController::class, 'btsProgression']);
+    Route::get('/course-progress/ue', [CourseProgressController::class, 'ueProgression']);
+    Route::post('/course-progress/revision-quiz', [CourseProgressController::class, 'revisionQuiz']);
+
+    // Plan de révision
+    Route::get('/revision-plan/options', [RevisionPlanController::class, 'options']);
+    Route::get('/revision-plan/bts', [RevisionPlanController::class, 'btsPlan']);
+    Route::post('/revision-plan/semester', [RevisionPlanController::class, 'semesterPlan']);
+    Route::get('/revision-plan/ues', [RevisionPlanController::class, 'ues']);
 
     // Prédiction des sujets d'examen
     Route::get('/exam-predictions/analyze', [ExamPredictionController::class, 'analyze']);
