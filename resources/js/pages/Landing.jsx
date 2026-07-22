@@ -192,21 +192,32 @@ export default function Landing() {
     const [recentVideos, setRecentVideos] = useState([]);
     const [formations, setFormations] = useState([]);
     const [stats, setStats] = useState({});
+    const [heroMedia, setHeroMedia] = useState([]);
+    const [heroIndex, setHeroIndex] = useState(0);
+    const [galleryOpen, setGalleryOpen] = useState(false);
+    const [galleryIndex, setGalleryIndex] = useState(0);
 
     useEffect(() => {
         api.get('/api/public/categories').then(r => {
-            const cats = r.data.data || [];
-            setCategories(cats);
-            // Load formations from first category that has api_slug
-            if (cats.length > 0) {
-                api.get(`/api/public/categories/${cats[0].id}/formations`)
-                    .then(fr => setFormations(fr.data.formations || []))
-                    .catch(() => {});
-            }
+            setCategories(r.data.data || []);
+        }).catch(() => {});
+        const filiereParam = user?.filiere ? `?filiere=${encodeURIComponent(user.filiere)}` : '';
+        api.get(`/api/public/recent-formations${filiereParam}`).then(r => {
+            setFormations(r.data.formations || []);
         }).catch(() => {});
         api.get('/api/public/recent-videos').then(r => setRecentVideos(r.data.data || [])).catch(() => {});
         api.get('/api/public/stats').then(r => setStats(r.data)).catch(() => {});
+        api.get('/api/public/hero-media').then(r => setHeroMedia(r.data.data || [])).catch(() => {});
     }, []);
+
+    // Auto-rotate hero carousel
+    useEffect(() => {
+        if (heroMedia.length <= 1) return;
+        const timer = setInterval(() => {
+            setHeroIndex(prev => (prev + 1) % heroMedia.length);
+        }, 5000);
+        return () => clearInterval(timer);
+    }, [heroMedia.length]);
 
     const firstBatch = recentVideos.slice(0, 4);
     const secondBatch = recentVideos.slice(4, 8);
@@ -289,6 +300,26 @@ export default function Landing() {
                                 {t('hero.cta2')}
                             </Link>
                         </div>
+                        <Link
+                            to="/orientation"
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 10,
+                                padding: '13px 28px',
+                                background: 'linear-gradient(135deg, #F5A623, #e8961a)',
+                                color: 'white',
+                                borderRadius: 50,
+                                fontWeight: 700,
+                                fontSize: 15,
+                                textDecoration: 'none',
+                                transition: 'all .2s',
+                                boxShadow: '0 4px 16px rgba(245,166,35,0.35)',
+                                marginTop: 14,
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                        >
+                            <i className="fas fa-compass"></i> Test d'orientation
+                        </Link>
 
                         {/* Mini trust row */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 36 }}>
@@ -310,88 +341,119 @@ export default function Landing() {
                         </div>
                     </div>
 
-                    {/* Right: hero card */}
+                    {/* Right: hero carousel */}
                     <div className="landing-hero-right">
                         <div className="landing-hero-card-pad" style={{
                             background: 'white',
                             borderRadius: 24,
                             boxShadow: '0 24px 64px rgba(27,42,74,0.10)',
                         }}>
-                            {/* Main thumbnail */}
-                            <div className="landing-hero-thumb" style={{
+                            {/* Main carousel image */}
+                            <div className="landing-hero-thumb" onClick={() => { if (heroMedia.length > 0) { setGalleryIndex(heroIndex); setGalleryOpen(true); } }} style={{
                                 borderRadius: 16,
-                                background: 'linear-gradient(135deg, #1B2A4A 0%, #5BBCB4 100%)',
+                                background: heroMedia.length > 0
+                                    ? `url(/storage/${heroMedia[heroIndex]?.filename}) center/cover no-repeat`
+                                    : 'linear-gradient(135deg, #1B2A4A 0%, #5BBCB4 100%)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 position: 'relative', overflow: 'hidden',
+                                transition: 'background-image 0.5s ease',
+                                cursor: heroMedia.length > 0 ? 'pointer' : 'default',
                             }}>
-                                {/* Simulated classroom scene */}
-                                <div style={{ position: 'absolute', inset: 0, opacity: 0.15 }}>
-                                    {[...Array(6)].map((_, i) => (
-                                        <div key={i} style={{
-                                            position: 'absolute',
-                                            width: 60 + i * 20, height: 60 + i * 20,
-                                            borderRadius: '50%',
-                                            border: '1px solid rgba(255,255,255,0.4)',
-                                            top: `${10 + i * 8}%`, left: `${5 + i * 12}%`,
-                                        }}></div>
-                                    ))}
-                                </div>
-                                <div style={{ textAlign: 'center', zIndex: 1 }}>
-                                    <div style={{
-                                        width: 60, height: 60, borderRadius: '50%',
-                                        background: 'rgba(255,255,255,0.2)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        margin: '0 auto 12px',
-                                        backdropFilter: 'blur(8px)',
-                                        border: '2px solid rgba(255,255,255,0.4)',
-                                    }}>
-                                        <i className="fas fa-play" style={{ color: 'white', fontSize: 22, marginLeft: 4 }}></i>
-                                    </div>
-                                    <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 500 }}>
-                                        Cours en ligne
-                                    </span>
-                                </div>
+                                {/* Overlay gradient */}
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    background: 'linear-gradient(to top, rgba(27,42,74,0.6) 0%, transparent 60%)',
+                                }}></div>
 
-                                {/* Floating badge */}
-                                <div style={{
-                                    position: 'absolute', bottom: 14, left: 14,
-                                    background: 'white', borderRadius: 10,
-                                    padding: '8px 12px',
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }}></div>
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: '#1B2A4A' }}>En direct maintenant</span>
-                                </div>
-                                <div style={{
-                                    position: 'absolute', top: 14, right: 14,
-                                    background: 'rgba(255,255,255,0.15)',
-                                    backdropFilter: 'blur(8px)',
-                                    borderRadius: 8, padding: '6px 10px',
-                                }}>
-                                    <span style={{ fontSize: 11, color: 'white', fontWeight: 600 }}>
-                                        <i className="fas fa-users" style={{ marginRight: 5 }}></i>
-                                        {stats.students || '150'}+
-                                    </span>
-                                </div>
+                                {/* Title overlay */}
+                                {heroMedia.length > 0 && heroMedia[heroIndex]?.title && (
+                                    <div style={{
+                                        position: 'absolute', bottom: 16, left: 16, right: 16,
+                                        zIndex: 2,
+                                    }}>
+                                        <span style={{
+                                            fontSize: 14, fontWeight: 700, color: 'white',
+                                            textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                                        }}>{heroMedia[heroIndex].title}</span>
+                                    </div>
+                                )}
+
+                                {/* Fallback play button when no hero media */}
+                                {heroMedia.length === 0 && (
+                                    <div style={{ textAlign: 'center', zIndex: 1 }}>
+                                        <div style={{
+                                            width: 60, height: 60, borderRadius: '50%',
+                                            background: 'rgba(255,255,255,0.2)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            margin: '0 auto 12px',
+                                            backdropFilter: 'blur(8px)',
+                                            border: '2px solid rgba(255,255,255,0.4)',
+                                        }}>
+                                            <i className="fas fa-play" style={{ color: 'white', fontSize: 22, marginLeft: 4 }}></i>
+                                        </div>
+                                        <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 500 }}>
+                                            Campus IUEs/INSAM
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* Navigation dots */}
+                                {heroMedia.length > 1 && (
+                                    <div style={{
+                                        position: 'absolute', bottom: 12, right: 16,
+                                        display: 'flex', gap: 6, zIndex: 3,
+                                    }}>
+                                        {heroMedia.map((_, i) => (
+                                            <div
+                                                key={i}
+                                                onClick={() => setHeroIndex(i)}
+                                                style={{
+                                                    width: i === heroIndex ? 20 : 8,
+                                                    height: 8,
+                                                    borderRadius: 4,
+                                                    background: i === heroIndex ? '#5BBCB4' : 'rgba(255,255,255,0.6)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.3s',
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* 3 small preview thumbnails */}
+                            {/* Mini thumbnails from hero media */}
                             <div className="landing-mini-thumbs">
-                                {[
-                                    { gradient: 'linear-gradient(135deg, #667eea, #764ba2)', icon: 'fa-laptop-code', label: 'Dev Web' },
-                                    { gradient: 'linear-gradient(135deg, #f093fb, #f5576c)', icon: 'fa-chart-bar', label: 'Gestion' },
-                                    { gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)', icon: 'fa-calculator', label: 'Maths' },
-                                ].map((thumb, i) => (
-                                    <div key={i} style={{
-                                        flex: 1, height: 68, borderRadius: 12,
-                                        background: thumb.gradient,
-                                        display: 'flex', flexDirection: 'column',
-                                        alignItems: 'center', justifyContent: 'center',
-                                        gap: 4, cursor: 'pointer',
-                                    }}>
-                                        <i className={`fas ${thumb.icon}`} style={{ color: 'white', fontSize: 16 }}></i>
-                                        <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 10, fontWeight: 600 }}>{thumb.label}</span>
+                                {(heroMedia.length > 0 ? heroMedia.slice(0, 3) : [
+                                    { title: 'Dev Web' },
+                                    { title: 'Gestion' },
+                                    { title: 'Maths' },
+                                ]).map((item, i) => (
+                                    <div
+                                        key={i}
+                                        onClick={() => { if (heroMedia.length > 0) { setHeroIndex(i); setGalleryIndex(i); setGalleryOpen(true); } }}
+                                        style={{
+                                            flex: 1, height: 68, borderRadius: 12,
+                                            background: heroMedia.length > 0 && item.filename
+                                                ? `url(/storage/${item.filename}) center/cover`
+                                                : ['linear-gradient(135deg, #667eea, #764ba2)', 'linear-gradient(135deg, #f093fb, #f5576c)', 'linear-gradient(135deg, #4facfe, #00f2fe)'][i],
+                                            display: 'flex', flexDirection: 'column',
+                                            alignItems: 'center', justifyContent: 'center',
+                                            gap: 4, cursor: 'pointer',
+                                            border: heroIndex === i ? '2px solid #5BBCB4' : '2px solid transparent',
+                                            position: 'relative', overflow: 'hidden',
+                                        }}
+                                    >
+                                        {heroMedia.length > 0 && item.filename && (
+                                            <div style={{
+                                                position: 'absolute', inset: 0,
+                                                background: 'rgba(0,0,0,0.3)',
+                                            }}></div>
+                                        )}
+                                        <span style={{
+                                            color: 'white', fontSize: 10, fontWeight: 600,
+                                            zIndex: 1, textAlign: 'center', padding: '0 4px',
+                                            textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                                        }}>{item.title || ''}</span>
                                     </div>
                                 ))}
                             </div>
@@ -477,21 +539,39 @@ export default function Landing() {
                                         e.currentTarget.style.transform = 'translateY(0)';
                                     }}
                                 >
-                                    {/* Icon box */}
-                                    <div style={{
-                                        width: 48, height: 48, borderRadius: 12,
-                                        background: palette.bg,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        marginBottom: 14, fontSize: 20, color: palette.color,
-                                    }}>
-                                        <i className={icon}></i>
-                                    </div>
+                                    {/* Image or Icon box */}
+                                    {cat?.image ? (
+                                        <div style={{
+                                            width: '100%', height: 120, borderRadius: 12,
+                                            marginBottom: 14, overflow: 'hidden',
+                                        }}>
+                                            <img src={`/storage/${cat.image}`} alt={cat.name} style={{
+                                                width: '100%', height: '100%', objectFit: 'cover',
+                                            }} />
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            width: 48, height: 48, borderRadius: 12,
+                                            background: palette.bg,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            marginBottom: 14, fontSize: 20, color: palette.color,
+                                        }}>
+                                            <i className={icon}></i>
+                                        </div>
+                                    )}
                                     <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1B2A4A', marginBottom: 6 }}>
                                         {cat?.name || names[i % names.length]}
                                     </h3>
-                                    <p style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: 0 }}>
+                                    <p style={{
+                                        fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: 0, textAlign: 'justify',
+                                        overflow: 'hidden', display: '-webkit-box',
+                                        WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                                    }}>
                                         {cat?.description || descs[i % descs.length]}
                                     </p>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: palette.color, marginTop: 8, display: 'inline-block' }}>
+                                        Voir plus <i className="fas fa-arrow-right" style={{ fontSize: 10 }}></i>
+                                    </span>
                                     {cat?.videos_count > 0 && (
                                         <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
                                             <span style={{
@@ -552,7 +632,7 @@ export default function Landing() {
                                     }}>
                                         {!f.img && <i className="fas fa-play-circle" style={{ fontSize: 36, color: 'rgba(255,255,255,0.8)' }}></i>}
                                         <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: 10, padding: '3px 8px', borderRadius: 4, fontWeight: 600 }}>
-                                            {f.chapitres?.length || 0} chapitres
+                                            {f.videos_count || f.chapitres?.length || 0} videos
                                         </div>
                                     </div>
                                     <div style={{ padding: 16 }}>
@@ -625,7 +705,106 @@ export default function Landing() {
             </section>
 
             {/* ============================
-                6a. "GET CHOICE OF YOUR COURSE"
+                6. TOUS NOS OUTILS
+            ============================= */}
+            <section className="landing-section" style={{ background: '#F8FAFB' }}>
+                <div style={W}>
+                    <div style={{ textAlign: 'center', marginBottom: 48 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#5BBCB4', letterSpacing: 1.5, textTransform: 'uppercase' }}>PLATEFORME COMPLETE</span>
+                        <h2 style={{ fontSize: 30, fontWeight: 800, color: '#1B2A4A', margin: '10px 0 12px' }}>
+                            Tout ce dont vous avez besoin pour reussir
+                        </h2>
+                        <p style={{ fontSize: 15, color: '#9ca3af', maxWidth: 560, margin: '0 auto' }}>
+                            INSAM-IA reunit tous les outils pour accompagner votre parcours academique
+                        </p>
+                    </div>
+
+                    {/* Main features grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20, marginBottom: 32 }}>
+                        {[
+                            { icon: 'fas fa-robot', title: 'Assistant IA 24h/7', desc: 'Posez vos questions a tout moment. L\'IA vous donne des explications personnalisees, resume vos cours et vous aide a reviser.', color: '#5BBCB4', bg: '#e8f8f5', to: '/assistant' },
+                            { icon: 'fas fa-book-open', title: 'Bibliotheque Intelligente', desc: 'Anciens sujets BTS, generation d\'epreuves par IA, corrections automatiques et suivi de votre progression par UE.', color: '#8b5cf6', bg: '#f5f3ff', to: '/bibliotheque' },
+                            { icon: 'fas fa-chart-bar', title: 'Progression Analytique', desc: 'Histogrammes de vos scores par UE et epreuves BTS. Suivez votre evolution et identifiez vos points faibles.', color: '#f59e0b', bg: '#fffbeb', to: '/bibliotheque' },
+                            { icon: 'fas fa-clipboard-check', title: 'Quiz & Evaluations', desc: 'Quiz interactifs generes par IA apres chaque cours. Quiz de revision conditionne par la completion du cours.', color: '#ef4444', bg: '#fef2f2', to: '/evaluations' },
+                            { icon: 'fas fa-graduation-cap', title: 'Formations par Filiere', desc: 'Cours structures par specialite avec chapitres, videos TP et roadmap de competences pour chaque filiere.', color: '#3b82f6', bg: '#eff6ff', to: '/formations' },
+                            { icon: 'fas fa-play-circle', title: 'Videos TP', desc: 'Travaux pratiques filmes pour chaque specialite. Apprenez en regardant les demonstrations de vos professeurs.', color: '#10b981', bg: '#ecfdf5', to: '/formations' },
+                            { icon: 'fas fa-file-alt', title: 'Sujets d\'Examens', desc: 'Base de sujets BTS par matiere et niveau. Telechargez, traitez et obtenez des corrections detaillees par l\'IA.', color: '#ec4899', bg: '#fdf2f8', to: '/sujets' },
+                            { icon: 'fas fa-magic', title: 'Generation d\'Epreuves', desc: 'L\'IA analyse les anciens sujets et genere de nouvelles epreuves completes avec bareme adapte a votre niveau.', color: '#6366f1', bg: '#eef2ff', to: '/bibliotheque' },
+                            { icon: 'fas fa-redo', title: 'Revision Intelligente', desc: 'Terminez un cours, puis passez au quiz de revision. Le bouton "Termine" debloque le quiz adapte a votre parcours.', color: '#14b8a6', bg: '#f0fdfa', to: '/bibliotheque' },
+                            { icon: 'fas fa-comments', title: 'Communaute Etudiante', desc: 'Echangez avec les autres etudiants par filiere. Posez des questions, partagez vos fiches et entraidez-vous.', color: '#f97316', bg: '#fff7ed', to: '/communaute' },
+                            { icon: 'fas fa-store', title: 'Marketplace', desc: 'Achetez et vendez des ressources academiques : fiches, resumes, TPs corriges entre etudiants.', color: '#0ea5e9', bg: '#f0f9ff', to: '/marketplace' },
+                            { icon: 'fas fa-road', title: 'Roadmap & Debouches', desc: 'Visualisez le parcours de competences de votre filiere et decouvrez les debouches professionnels qui vous attendent.', color: '#1B2A4A', bg: '#f0f4ff', to: '/formations' },
+                        ].map((f, i) => (
+                            <Link key={i} to={user ? f.to : '/register'} style={{
+                                background: 'white', borderRadius: 16, padding: '24px 22px',
+                                border: '1px solid #f0f0f0', textDecoration: 'none',
+                                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                                transition: 'all .2s', display: 'block',
+                            }}
+                                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 28px rgba(91,188,180,0.12)'; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = f.color; }}
+                                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#f0f0f0'; }}
+                            >
+                                <div style={{
+                                    width: 48, height: 48, borderRadius: 12, background: f.bg,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    marginBottom: 14, fontSize: 20, color: f.color,
+                                }}>
+                                    <i className={f.icon}></i>
+                                </div>
+                                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1B2A4A', marginBottom: 8 }}>{f.title}</h3>
+                                <p style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.7, margin: 0 }}>{f.desc}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ============================
+                7. COMMENT CA MARCHE
+            ============================= */}
+            <section className="landing-section-sm" style={{ background: 'white' }}>
+                <div style={W}>
+                    <div style={{ textAlign: 'center', marginBottom: 48 }}>
+                        <h2 style={{ fontSize: 28, fontWeight: 800, color: '#1B2A4A', marginBottom: 12 }}>
+                            Comment ca marche ?
+                        </h2>
+                        <p style={{ fontSize: 14, color: '#9ca3af', maxWidth: 480, margin: '0 auto' }}>
+                            3 etapes simples pour commencer votre apprentissage
+                        </p>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32, maxWidth: 900, margin: '0 auto' }} className="landing-grid4">
+                        {[
+                            { num: '1', icon: 'fas fa-user-plus', title: 'Inscrivez-vous', desc: 'Creez votre compte gratuit et selectionnez votre filiere et niveau.' },
+                            { num: '2', icon: 'fas fa-book-reader', title: 'Suivez vos cours', desc: 'Accedez aux cours, videos TP et sujets d\'examens de votre filiere. Cliquez "Termine" apres chaque cours.' },
+                            { num: '3', icon: 'fas fa-chart-line', title: 'Progressez', desc: 'Passez les quiz de revision, traitez les epreuves BTS et suivez vos scores sur les histogrammes.' },
+                        ].map((step, i) => (
+                            <div key={i} style={{ textAlign: 'center', position: 'relative' }}>
+                                <div style={{
+                                    width: 64, height: 64, borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, #5BBCB4, #3da89e)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    margin: '0 auto 18px', color: 'white', fontSize: 24,
+                                    boxShadow: '0 8px 24px rgba(91,188,180,0.3)',
+                                }}>
+                                    <i className={step.icon}></i>
+                                </div>
+                                <div style={{
+                                    position: 'absolute', top: -8, right: 'calc(50% - 40px)',
+                                    width: 28, height: 28, borderRadius: '50%',
+                                    background: '#1B2A4A', color: 'white',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 12, fontWeight: 800,
+                                }}>{step.num}</div>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1B2A4A', marginBottom: 8 }}>{step.title}</h3>
+                                <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.7 }}>{step.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ============================
+                8a. "GET CHOICE OF YOUR COURSE"
             ============================= */}
             {secondBatch.length > 0 && (
                 <section className="landing-section-sm">
@@ -804,6 +983,78 @@ export default function Landing() {
                     </p>
                 </div>
             </footer>
+
+            {/* Gallery Lightbox */}
+            {galleryOpen && heroMedia.length > 0 && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                }} onClick={() => setGalleryOpen(false)}>
+                    {/* Close button */}
+                    <button onClick={() => setGalleryOpen(false)} style={{
+                        position: 'absolute', top: 20, right: 24, background: 'none', border: 'none',
+                        color: 'white', fontSize: 28, cursor: 'pointer', zIndex: 10, padding: 8,
+                    }}><i className="fas fa-times"></i></button>
+
+                    {/* Counter */}
+                    <div style={{ position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)',
+                        color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: 600 }}>
+                        {galleryIndex + 1} / {heroMedia.length}
+                    </div>
+
+                    {/* Main image */}
+                    <div onClick={e => e.stopPropagation()} style={{
+                        maxWidth: '90vw', maxHeight: '75vh', position: 'relative',
+                    }}>
+                        <img
+                            src={`/storage/${heroMedia[galleryIndex]?.filename}`}
+                            alt={heroMedia[galleryIndex]?.title || ''}
+                            style={{ maxWidth: '90vw', maxHeight: '75vh', objectFit: 'contain', borderRadius: 12 }}
+                        />
+                        {heroMedia[galleryIndex]?.title && (
+                            <div style={{
+                                textAlign: 'center', marginTop: 12,
+                                color: 'white', fontSize: 16, fontWeight: 600,
+                            }}>{heroMedia[galleryIndex].title}</div>
+                        )}
+                    </div>
+
+                    {/* Prev / Next arrows */}
+                    {heroMedia.length > 1 && (
+                        <>
+                            <button onClick={e => { e.stopPropagation(); setGalleryIndex((galleryIndex - 1 + heroMedia.length) % heroMedia.length); }} style={{
+                                position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
+                                background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
+                                width: 48, height: 48, borderRadius: '50%', fontSize: 20, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}><i className="fas fa-chevron-left"></i></button>
+                            <button onClick={e => { e.stopPropagation(); setGalleryIndex((galleryIndex + 1) % heroMedia.length); }} style={{
+                                position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+                                background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
+                                width: 48, height: 48, borderRadius: '50%', fontSize: 20, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}><i className="fas fa-chevron-right"></i></button>
+                        </>
+                    )}
+
+                    {/* Thumbnail strip */}
+                    <div onClick={e => e.stopPropagation()} style={{
+                        display: 'flex', gap: 8, marginTop: 20, overflowX: 'auto',
+                        maxWidth: '90vw', padding: '4px 0',
+                    }}>
+                        {heroMedia.map((m, i) => (
+                            <div key={i} onClick={() => setGalleryIndex(i)} style={{
+                                width: 72, height: 50, borderRadius: 8, flexShrink: 0,
+                                background: `url(/storage/${m.filename}) center/cover`,
+                                border: i === galleryIndex ? '2px solid #5BBCB4' : '2px solid transparent',
+                                cursor: 'pointer', opacity: i === galleryIndex ? 1 : 0.6,
+                                transition: 'all 0.2s',
+                            }} />
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
