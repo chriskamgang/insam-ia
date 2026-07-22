@@ -11,7 +11,7 @@ const NIVEAUX = ['Licence 1', 'Licence 2', 'Licence 3', 'Master 1', 'Master 2', 
 const ANNEES = Array.from({ length: 12 }, (_, i) => String(2024 - i));
 
 // ── Upload Modal ────────────────────────────────────────────────────────────
-function UploadModal({ categories, onClose, onSuccess }) {
+function UploadModal({ categories, specialites, onClose, onSuccess }) {
     const { t } = useLang();
     const [form, setForm] = useState({
         title: '', matiere: '', filiere: '', niveau: '', annee: '',
@@ -134,19 +134,9 @@ function UploadModal({ categories, onClose, onSuccess }) {
                                 onBlur={e => e.target.style.borderColor = errors.filiere ? '#ef4444' : '#e5e7eb'}
                             >
                                 <option value="">Selectionnez une specialite</option>
-                                <option value="Informatique & Reseaux">Informatique & Reseaux</option>
-                                <option value="Genie Civil">Genie Civil</option>
-                                <option value="Comptabilite & Gestion">Comptabilite & Gestion</option>
-                                <option value="Marketing & Commerce">Marketing & Commerce</option>
-                                <option value="Logistique & Transport">Logistique & Transport</option>
-                                <option value="Secretariat de Direction">Secretariat de Direction</option>
-                                <option value="Genie Logiciel">Genie Logiciel</option>
-                                <option value="Sante">Sante</option>
-                                <option value="Informatique Industrielle & Automatisme">Informatique Industrielle & Automatisme</option>
-                                <option value="Production Vegetale">Production Vegetale</option>
-                                <option value="Sciences Infirmieres">Sciences Infirmieres</option>
-                                <option value="Techniques de Laboratoire">Techniques de Laboratoire</option>
-                                <option value="Assistant Manager">Assistant Manager</option>
+                                {specialites.map(s => (
+                                    <option key={s.id || s.name} value={s.name}>{s.name}</option>
+                                ))}
                             </select>
                             {errors.filiere && <span style={{ color: '#ef4444', fontSize: 11 }}>{errors.filiere}</span>}
                         </div>
@@ -725,6 +715,7 @@ export default function Exams() {
     const { t } = useLang();
     const [exams, setExams] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [specialites, setSpecialites] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showUpload, setShowUpload] = useState(false);
     const [viewingExam, setViewingExam] = useState(null);
@@ -752,6 +743,9 @@ export default function Exams() {
     useEffect(() => {
         api.get('/api/public/categories')
             .then(r => setCategories(r.data?.data || []))
+            .catch(() => {});
+        api.get('/api/public/specialites')
+            .then(r => setSpecialites(r.data?.specialites || r.data?.data || []))
             .catch(() => {});
     }, []);
 
@@ -982,6 +976,7 @@ export default function Exams() {
             {showUpload && (
                 <UploadModal
                     categories={categories}
+                    specialites={specialites}
                     onClose={() => setShowUpload(false)}
                     onSuccess={fetchExams}
                 />

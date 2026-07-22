@@ -11,6 +11,7 @@ use App\Models\Exam;
 use App\Models\RoadmapStep;
 use App\Models\KnowledgeDocument;
 use App\Models\User;
+use App\Models\Specialite;
 use App\Models\Video;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -706,6 +707,13 @@ PROMPT;
         $media = HeroMedia::orderBy('sort_order')->get();
 
         return response()->json(['data' => $media]);
+    }
+
+    public function allSpecialites()
+    {
+        $specialites = Specialite::orderBy('name')->get(['id', 'name']);
+
+        return response()->json(['specialites' => $specialites]);
     }
 
     // ===== ORIENTATION =====

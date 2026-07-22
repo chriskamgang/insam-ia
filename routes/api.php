@@ -41,6 +41,7 @@ Route::prefix('public')->group(function () {
     Route::get('/categories/{id}/formations', [PublicController::class, 'insamtechsFormations']);
     Route::get('/recent-formations', [PublicController::class, 'recentFormations']);
     Route::get('/hero-media', [PublicController::class, 'heroMedia']);
+    Route::get('/specialites', [PublicController::class, 'allSpecialites']);
 
     // Orientation
     Route::get('/orientation/ecoles', [PublicController::class, 'orientationEcoles']);
