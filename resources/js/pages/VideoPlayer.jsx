@@ -372,6 +372,40 @@ export default function VideoPlayer() {
                             </div>
                         </div>
 
+                        {/* === QUIZ DE CETTE LECON === */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #e8f8f5, #f0fdf9)',
+                            border: '1.5px solid #5BBCB440',
+                            borderRadius: 16, padding: '22px 24px', marginBottom: 28,
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            gap: 16, flexWrap: 'wrap',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{
+                                    width: 44, height: 44, borderRadius: 12,
+                                    background: '#5BBCB4', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: 'white', fontSize: 18, flexShrink: 0,
+                                }}>
+                                    <i className="fas fa-clipboard-check"></i>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1B2A4A' }}>Quiz de cette lecon</div>
+                                    <div style={{ fontSize: 12, color: '#6b7280' }}>Testez vos connaissances apres avoir regarde ce cours</div>
+                                </div>
+                            </div>
+                            <Link to="/assistant" style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                background: 'linear-gradient(135deg, #5BBCB4, #3da89e)',
+                                color: 'white', border: 'none', borderRadius: 10,
+                                padding: '10px 22px', fontSize: 13, fontWeight: 700,
+                                textDecoration: 'none',
+                                boxShadow: '0 3px 12px rgba(91,188,180,0.3)',
+                            }}>
+                                <i className="fas fa-play"></i>
+                                Passer le quiz
+                            </Link>
+                        </div>
+
                         {/* === RELATED VIDEOS === */}
                         {related.length > 0 && (
                             <div>

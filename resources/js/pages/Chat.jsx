@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../context/LangContext';
+import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import toast from 'react-hot-toast';
 
@@ -20,6 +21,7 @@ const chatCSS = `
 @media(max-width:480px){
   .chat-bubble-max { max-width:90%; }
   .chat-title-bar { height:auto; padding:10px 0; flex-wrap:wrap; gap:8px; }
+  .chat-tool-label { display:none; }
 }
 `;
 
@@ -113,6 +115,7 @@ function MessageBubble({ msg }) {
 
 export default function Chat() {
     const { t } = useLang();
+    const { user } = useAuth();
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [file, setFile] = useState(null);
@@ -121,6 +124,24 @@ export default function Chat() {
     const bottomRef = useRef(null);
     const fileInputRef = useRef(null);
     const textareaRef = useRef(null);
+
+    // UE selector
+    const [ues, setUes] = useState([]);
+    const [selectedUe, setSelectedUe] = useState('');
+
+    // AI Tools state
+    const [toolPanel, setToolPanel] = useState(null); // 'summary', 'ue', null
+    const [formations, setFormations] = useState([]);
+    const [selectedFormation, setSelectedFormation] = useState(null);
+    const [summaryResult, setSummaryResult] = useState(null);
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [quizQuestions, setQuizQuestions] = useState(null);
+    const [quizAnswers, setQuizAnswers] = useState({});
+    const [quizSubmitted, setQuizSubmitted] = useState(false);
+    const [quizLoading, setQuizLoading] = useState(false);
+    const [quizCourseTitle, setQuizCourseTitle] = useState('');
+    const [completedCourses, setCompletedCourses] = useState(new Set());
+    const [speaking, setSpeaking] = useState(false);
 
     // Inject keyframe animation once
     useEffect(() => {
@@ -141,6 +162,72 @@ export default function Chat() {
             document.head.appendChild(style);
         }
     }, []);
+
+    // Load formations and UEs for the tools
+    useEffect(() => {
+        api.get('/api/my-formations').then(r => {
+            setFormations(r.data.formations || []);
+        }).catch(() => {});
+        api.get('/api/public/unites-enseignement').then(r => {
+            setUes(r.data?.data || r.data || []);
+        }).catch(() => {});
+    }, []);
+
+    // TTS functions
+    const speakText = (text) => {
+        if (speaking) { window.speechSynthesis.cancel(); setSpeaking(false); return; }
+        const clean = (text || '').replace(/#{1,3}\s/g, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/`[^`]+`/g, '').replace(/[-*]\s/g, '');
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.lang = 'fr-FR'; utter.rate = 0.9;
+        utter.onend = () => setSpeaking(false);
+        utter.onerror = () => setSpeaking(false);
+        window.speechSynthesis.speak(utter);
+        setSpeaking(true);
+    };
+
+    // Summarize a course
+    const handleSummarize = async (courseTitle, partial) => {
+        setSummaryLoading(true); setSummaryResult(null);
+        try {
+            const r = await api.post('/api/exams/summarize-course', {
+                course_title: courseTitle,
+                course_content: '',
+                partial: partial || null,
+                filiere: user?.filiere || '',
+            });
+            setSummaryResult(r.data.summary);
+        } catch { toast.error('Erreur lors du resume.'); }
+        finally { setSummaryLoading(false); }
+    };
+
+    // Generate quiz for a course/UE
+    const handleGenerateQuiz = async (courseTitle) => {
+        setQuizLoading(true); setQuizQuestions(null); setQuizAnswers({}); setQuizSubmitted(false); setQuizCourseTitle(courseTitle);
+        try {
+            const r = await api.post('/api/exams/generate-quiz', {
+                course_title: courseTitle,
+                num_questions: 10,
+            });
+            setQuizQuestions(r.data.questions);
+        } catch { toast.error('Erreur lors de la generation du quiz.'); }
+        finally { setQuizLoading(false); }
+    };
+
+    const quizScore = () => {
+        if (!quizQuestions) return 0;
+        return quizQuestions.filter((q, i) => quizAnswers[i] === q.correct).length;
+    };
+
+    const markCourseCompleted = async (courseTitle) => {
+        try {
+            await api.post('/api/course-progress/mark-completed', {
+                subject: user?.filiere || 'General',
+                title: courseTitle,
+            });
+            setCompletedCourses(prev => new Set([...prev, courseTitle]));
+            toast.success('Cours marqué comme terminé !');
+        } catch { toast.error('Erreur'); }
+    };
 
     // Load history on mount
     useEffect(() => {
@@ -205,11 +292,14 @@ export default function Chat() {
                 const fd = new FormData();
                 fd.append('message', text);
                 fd.append('file', file);
+                if (selectedUe) fd.append('ue_id', selectedUe);
                 response = await api.post('/api/chat', fd, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
             } else {
-                response = await api.post('/api/chat', { message: text });
+                const payload = { message: text };
+                if (selectedUe) payload.ue_id = selectedUe;
+                response = await api.post('/api/chat', payload);
             }
 
             const aiContent = response.data?.reply
@@ -277,9 +367,336 @@ export default function Chat() {
                             </div>
                         </div>
                     </div>
-                    <div></div>
+                    {/* UE selector + Tool buttons */}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* UE Selector */}
+                        <div style={{ position: 'relative' }}>
+                            <i className="fas fa-book" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: selectedUe ? TEAL : '#9ca3af', fontSize: 12, pointerEvents: 'none' }}></i>
+                            <select
+                                value={selectedUe}
+                                onChange={e => setSelectedUe(e.target.value)}
+                                style={{
+                                    paddingLeft: 30, paddingRight: 28, paddingTop: 8, paddingBottom: 8,
+                                    borderRadius: 10, fontSize: 12, fontWeight: 600,
+                                    border: selectedUe ? `2px solid ${TEAL}` : '1.5px solid #e5e7eb',
+                                    background: selectedUe ? '#e8f8f5' : 'white',
+                                    color: selectedUe ? TEAL : '#6b7280',
+                                    cursor: 'pointer', outline: 'none', appearance: 'none',
+                                    fontFamily: 'inherit', maxWidth: 220,
+                                }}
+                            >
+                                <option value="">Toutes les UE</option>
+                                {ues.map(ue => (
+                                    <option key={ue.id} value={ue.id}>{ue.code ? `${ue.code} - ` : ''}{ue.nom || ue.name}</option>
+                                ))}
+                            </select>
+                            <i className="fas fa-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: '#9ca3af', pointerEvents: 'none' }}></i>
+                        </div>
+
+                        {[
+                            { key: 'summary', icon: 'fas fa-book-reader', label: 'Resume de cours' },
+                            { key: 'ue', icon: 'fas fa-graduation-cap', label: 'UE + Quiz' },
+                        ].map(tool => (
+                            <button key={tool.key} onClick={() => setToolPanel(toolPanel === tool.key ? null : tool.key)}
+                                title={tool.label}
+                                style={{
+                                    padding: '8px 14px', borderRadius: 10,
+                                    border: toolPanel === tool.key ? `2px solid ${TEAL}` : '1.5px solid #e5e7eb',
+                                    background: toolPanel === tool.key ? '#e8f8f5' : 'white',
+                                    color: toolPanel === tool.key ? TEAL : '#6b7280',
+                                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                                    display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                                }}>
+                                <i className={tool.icon}></i>
+                                <span className="chat-tool-label">{tool.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
+
+            {/* ── AI Tool Panel ── */}
+            {toolPanel && (
+                <div style={{ background: 'white', borderBottom: '1px solid #f0f0f0', padding: '20px 0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div style={{ ...W, maxWidth: 900, width: '100%' }}>
+
+                        {/* === SUMMARY TOOL === */}
+                        {toolPanel === 'summary' && (
+                            <div>
+                                <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 12 }}>
+                                    <i className="fas fa-book-reader" style={{ color: TEAL, marginRight: 8 }}></i>
+                                    Resume de cours
+                                </h3>
+                                {formations.length > 0 ? (
+                                    <div>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+                                            {formations.slice(0, 8).map((f, i) => (
+                                                <button key={i} onClick={() => { setSelectedFormation(f); handleSummarize(f.intitule || f.title); }}
+                                                    style={{
+                                                        padding: '8px 14px', borderRadius: 20,
+                                                        border: selectedFormation === f ? `2px solid ${TEAL}` : '1.5px solid #e5e7eb',
+                                                        background: selectedFormation === f ? '#e8f8f5' : 'white',
+                                                        color: selectedFormation === f ? TEAL : NAVY,
+                                                        fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                                                        textTransform: 'capitalize',
+                                                    }}>
+                                                    {(f.intitule || f.title || 'Cours').substring(0, 40)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {selectedFormation && selectedFormation.chapitres?.length > 0 && (
+                                            <div style={{ marginBottom: 14 }}>
+                                                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginBottom: 6, display: 'block' }}>
+                                                    Ou resumer une partie specifique :
+                                                </span>
+                                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                    {selectedFormation.chapitres.map((ch, ci) => (
+                                                        <button key={ci} onClick={() => handleSummarize(selectedFormation.intitule, ch.intitule)}
+                                                            style={{
+                                                                padding: '6px 12px', borderRadius: 16,
+                                                                border: '1px solid #e5e7eb', background: '#fafafa',
+                                                                color: '#374151', fontSize: 11, fontWeight: 500,
+                                                                cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
+                                                            }}>
+                                                            {(ch.intitule || `Chapitre ${ci + 1}`).substring(0, 35)}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p style={{ fontSize: 13, color: '#9ca3af' }}>Aucune formation trouvee pour votre filiere.</p>
+                                )}
+
+                                {summaryLoading && (
+                                    <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
+                                        <i className="fas fa-spinner fa-spin" style={{ fontSize: 20, color: TEAL }}></i>
+                                        <p style={{ fontSize: 13, marginTop: 8 }}>Generation du resume...</p>
+                                    </div>
+                                )}
+                                {summaryResult && (
+                                    <div style={{ background: '#f8fafb', borderRadius: 14, padding: 20, border: '1px solid #f0f0f0', marginTop: 12, maxHeight: 400, overflowY: 'auto' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Resume genere</span>
+                                            <button onClick={() => speakText(summaryResult)} style={{
+                                                padding: '6px 14px', borderRadius: 8,
+                                                border: `1.5px solid ${speaking ? '#ef4444' : TEAL}`,
+                                                background: speaking ? '#fef2f2' : '#f0fdf9',
+                                                color: speaking ? '#ef4444' : TEAL,
+                                                fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                                            }}>
+                                                <i className={`fas fa-${speaking ? 'stop' : 'volume-up'}`} style={{ marginRight: 5 }}></i>
+                                                {speaking ? 'Arreter' : 'Lire le cours'}
+                                            </button>
+                                        </div>
+                                        <div style={{ fontSize: 13, lineHeight: 1.7, color: '#374151', whiteSpace: 'pre-wrap' }}>
+                                            {summaryResult}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* === UE + QUIZ TOOL === */}
+                        {toolPanel === 'ue' && (
+                            <div>
+                                <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 12 }}>
+                                    <i className="fas fa-graduation-cap" style={{ color: TEAL, marginRight: 8 }}></i>
+                                    Unites d'Enseignement
+                                </h3>
+                                {formations.length > 0 ? (
+                                    <div>
+                                        {/* Formation list with quiz buttons */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12, marginBottom: 16 }}>
+                                            {formations.map((f, fi) => (
+                                                <div key={fi} style={{
+                                                    background: selectedFormation === f ? '#e8f8f5' : '#fafafa',
+                                                    borderRadius: 12, padding: 16, border: selectedFormation === f ? `2px solid ${TEAL}` : '1px solid #f0f0f0',
+                                                    cursor: 'pointer',
+                                                }} onClick={() => setSelectedFormation(f)}>
+                                                    <h4 style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: '0 0 6px', textTransform: 'capitalize' }}>
+                                                        {(f.intitule || f.title || 'UE').substring(0, 50)}
+                                                    </h4>
+                                                    <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10 }}>
+                                                        {f.chapitres?.length || 0} chapitre{(f.chapitres?.length || 0) > 1 ? 's' : ''}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                        <button onClick={(e) => { e.stopPropagation(); speakText(`Cours: ${f.intitule}. ${f.chapitres?.map(c => c.intitule).join('. ') || ''}`); }}
+                                                            style={{
+                                                                padding: '5px 12px', borderRadius: 6, border: `1px solid ${TEAL}`,
+                                                                background: 'white', color: TEAL, fontSize: 11, fontWeight: 600,
+                                                                cursor: 'pointer', fontFamily: 'inherit',
+                                                            }}>
+                                                            <i className="fas fa-volume-up" style={{ marginRight: 4 }}></i>Lire
+                                                        </button>
+                                                        {completedCourses.has(f.intitule || f.title) ? (
+                                                            <button disabled style={{
+                                                                padding: '5px 12px', borderRadius: 6, border: '1px solid #22c55e',
+                                                                background: '#dcfce7', color: '#16a34a', fontSize: 11, fontWeight: 600,
+                                                                cursor: 'default', fontFamily: 'inherit',
+                                                            }}>
+                                                                <i className="fas fa-check" style={{ marginRight: 4 }}></i>Terminé
+                                                            </button>
+                                                        ) : (
+                                                            <button onClick={(e) => { e.stopPropagation(); markCourseCompleted(f.intitule || f.title); }}
+                                                                style={{
+                                                                    padding: '5px 12px', borderRadius: 6, border: '1px solid #f59e0b',
+                                                                    background: '#fffbeb', color: '#d97706', fontSize: 11, fontWeight: 600,
+                                                                    cursor: 'pointer', fontFamily: 'inherit',
+                                                                }}>
+                                                                <i className="fas fa-check-circle" style={{ marginRight: 4 }}></i>Terminé
+                                                            </button>
+                                                        )}
+                                                        <button onClick={(e) => { e.stopPropagation(); handleGenerateQuiz(f.intitule || f.title); }}
+                                                            style={{
+                                                                padding: '5px 12px', borderRadius: 6, border: 'none',
+                                                                background: TEAL, color: 'white', fontSize: 11, fontWeight: 600,
+                                                                cursor: 'pointer', fontFamily: 'inherit',
+                                                            }}>
+                                                            <i className="fas fa-question-circle" style={{ marginRight: 4 }}></i>Passer au Quiz
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Selected formation chapters */}
+                                        {selectedFormation && selectedFormation.chapitres?.length > 0 && !quizQuestions && (
+                                            <div style={{ background: '#fafafa', borderRadius: 12, padding: 16, border: '1px solid #f0f0f0', marginBottom: 16, maxHeight: 300, overflowY: 'auto' }}>
+                                                <h4 style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 10, textTransform: 'capitalize' }}>
+                                                    {selectedFormation.intitule || 'Cours'}
+                                                </h4>
+                                                {selectedFormation.chapitres.map((ch, ci) => (
+                                                    <div key={ci} style={{ marginBottom: 10 }}>
+                                                        <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 4, textTransform: 'capitalize' }}>
+                                                            <i className="fas fa-bookmark" style={{ color: TEAL, marginRight: 6, fontSize: 11 }}></i>
+                                                            {ch.intitule || `Chapitre ${ci + 1}`}
+                                                        </div>
+                                                        {ch.videos?.map((v, vi) => (
+                                                            <a key={vi} href={v.lien || '#'} target="_blank" rel="noopener noreferrer"
+                                                                style={{ display: 'block', fontSize: 12, color: TEAL, marginLeft: 20, padding: '2px 0', textDecoration: 'none', textTransform: 'capitalize' }}>
+                                                                <i className="fas fa-play-circle" style={{ marginRight: 5, fontSize: 10 }}></i>
+                                                                {v.intitule || 'Video'}
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p style={{ fontSize: 13, color: '#9ca3af' }}>Aucune formation trouvee pour votre filiere.</p>
+                                )}
+
+                                {quizLoading && (
+                                    <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
+                                        <i className="fas fa-spinner fa-spin" style={{ fontSize: 20, color: TEAL }}></i>
+                                        <p style={{ fontSize: 13, marginTop: 8 }}>Generation du quiz...</p>
+                                    </div>
+                                )}
+
+                                {/* Quiz display */}
+                                {quizQuestions && (
+                                    <div style={{ background: 'white', borderRadius: 14, padding: 20, border: '1px solid #f0f0f0' }}>
+                                        <h4 style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 16 }}>
+                                            <i className="fas fa-question-circle" style={{ color: TEAL, marginRight: 8 }}></i>
+                                            Quiz - {quizQuestions.length} questions
+                                        </h4>
+                                        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                                            {quizQuestions.map((q, qi) => (
+                                                <div key={qi} style={{ marginBottom: 20, padding: 16, background: '#f8fafb', borderRadius: 10 }}>
+                                                    <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 10 }}>
+                                                        {qi + 1}. {q.question}
+                                                    </p>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                        {q.options?.map((opt, oi) => {
+                                                            const selected = quizAnswers[qi] === oi;
+                                                            const isCorrect = q.correct === oi;
+                                                            let bg = 'white', border = '#e5e7eb', color = NAVY;
+                                                            if (quizSubmitted) {
+                                                                if (isCorrect) { bg = '#dcfce7'; border = '#22c55e'; color = '#166534'; }
+                                                                else if (selected && !isCorrect) { bg = '#fef2f2'; border = '#ef4444'; color = '#991b1b'; }
+                                                            } else if (selected) {
+                                                                bg = '#e8f8f5'; border = TEAL; color = TEAL;
+                                                            }
+                                                            return (
+                                                                <button key={oi} onClick={() => { if (!quizSubmitted) setQuizAnswers(p => ({ ...p, [qi]: oi })); }}
+                                                                    style={{
+                                                                        padding: '10px 14px', borderRadius: 8,
+                                                                        border: `1.5px solid ${border}`, background: bg,
+                                                                        color, fontSize: 13, fontWeight: selected ? 600 : 400,
+                                                                        cursor: quizSubmitted ? 'default' : 'pointer',
+                                                                        fontFamily: 'inherit', textAlign: 'left',
+                                                                    }}>
+                                                                    <span style={{ fontWeight: 700, marginRight: 8 }}>{['A', 'B', 'C', 'D'][oi]}.</span>
+                                                                    {opt}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {quizSubmitted && q.explanation && (
+                                                        <p style={{ fontSize: 12, color: '#6b7280', marginTop: 8, fontStyle: 'italic' }}>
+                                                            <i className="fas fa-info-circle" style={{ marginRight: 5 }}></i>{q.explanation}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {!quizSubmitted ? (
+                                            <button onClick={() => {
+                                                setQuizSubmitted(true);
+                                                const score = quizQuestions.filter((q, i) => quizAnswers[i] === q.correct).length;
+                                                const pct = Math.round(score / quizQuestions.length * 100);
+                                                api.post('/api/course-progress', {
+                                                    type: 'ue_quiz',
+                                                    subject: user?.filiere || 'General',
+                                                    title: quizCourseTitle || 'Quiz UE',
+                                                    score: pct,
+                                                    total_questions: quizQuestions.length,
+                                                    correct_answers: score,
+                                                    quiz_completed: true,
+                                                }).catch(() => {});
+                                            }} disabled={Object.keys(quizAnswers).length < quizQuestions.length}
+                                                style={{
+                                                    padding: '12px 28px', borderRadius: 10, border: 'none',
+                                                    background: Object.keys(quizAnswers).length < quizQuestions.length ? '#d1d5db' : TEAL,
+                                                    color: 'white', fontWeight: 700, fontSize: 14,
+                                                    cursor: Object.keys(quizAnswers).length < quizQuestions.length ? 'not-allowed' : 'pointer',
+                                                    fontFamily: 'inherit', marginTop: 8,
+                                                }}>
+                                                <i className="fas fa-check" style={{ marginRight: 8 }}></i>
+                                                Soumettre ({Object.keys(quizAnswers).length}/{quizQuestions.length})
+                                            </button>
+                                        ) : (
+                                            <div style={{
+                                                marginTop: 12, padding: 16, borderRadius: 12,
+                                                background: quizScore() >= quizQuestions.length * 0.7 ? '#dcfce7' : '#fef3c7',
+                                                border: `1px solid ${quizScore() >= quizQuestions.length * 0.7 ? '#22c55e' : '#f59e0b'}`,
+                                            }}>
+                                                <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>
+                                                    Score: {quizScore()}/{quizQuestions.length} ({Math.round(quizScore() / quizQuestions.length * 100)}%)
+                                                </div>
+                                                <p style={{ fontSize: 13, color: '#374151', marginTop: 4 }}>
+                                                    {quizScore() >= quizQuestions.length * 0.7 ? 'Excellent travail !' : 'Continuez a reviser, vous pouvez vous ameliorer !'}
+                                                </p>
+                                                <button onClick={() => { setQuizQuestions(null); setQuizAnswers({}); setQuizSubmitted(false); }}
+                                                    style={{
+                                                        marginTop: 10, padding: '8px 20px', borderRadius: 8,
+                                                        border: 'none', background: NAVY, color: 'white',
+                                                        fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                                                    }}>
+                                                    <i className="fas fa-redo" style={{ marginRight: 6 }}></i>Nouveau quiz
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ── Main Chat Area ── */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', ...W, padding: '0 24px', maxWidth: 900, width: '100%' }}>

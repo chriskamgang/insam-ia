@@ -11,12 +11,12 @@ const TOOLS = [
     { to: '/fiches', icon: 'fas fa-layer-group', label: 'Fiches de revision' },
     { to: '/simulation', icon: 'fas fa-clock', label: 'Simulation d\'examen' },
     { to: '/evaluations', icon: 'fas fa-clipboard-check', label: 'Quiz & Evaluations' },
-    { to: '/sujets', icon: 'fas fa-file-alt', label: 'Sujets d\'examens' },
     { to: '/predictions', icon: 'fas fa-bullseye', label: 'Predictions d\'examens' },
     { to: '/progression', icon: 'fas fa-chart-line', label: 'Ma progression' },
+    { to: '/revision', icon: 'fas fa-clipboard-list', label: 'Programme de revision' },
     { to: '/planification', icon: 'fas fa-calendar-alt', label: 'Planification' },
     { to: '/bibliotheque', icon: 'fas fa-book', label: 'Bibliotheque' },
-    { to: '/communaute', icon: 'fas fa-comments', label: 'Chat Communautaire' },
+    { to: '/communaute', icon: 'fas fa-comments', label: 'Forum Communautaire' },
 ];
 
 const navCSS = `

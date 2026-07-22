@@ -26,7 +26,7 @@ function UploadModal({ categories, onClose, onSuccess }) {
         const e = {};
         if (!form.title.trim()) e.title = 'Titre requis';
         if (!form.matiere.trim()) e.matiere = 'Matiere requise';
-        if (!form.filiere.trim()) e.filiere = 'Filiere requise';
+        if (!form.filiere.trim()) e.filiere = 'Specialite requise';
         if (!form.niveau) e.niveau = 'Niveau requis';
         if (!form.annee) e.annee = 'Annee requise';
         if (!form.file) e.file = 'Fichier requis';
@@ -125,15 +125,29 @@ function UploadModal({ categories, onClose, onSuccess }) {
                             {errors.matiere && <span style={{ color: '#ef4444', fontSize: 11 }}>{errors.matiere}</span>}
                         </div>
                         <div>
-                            <label style={labelStyle}>Filiere *</label>
-                            <input
+                            <label style={labelStyle}>Specialite *</label>
+                            <select
                                 value={form.filiere}
                                 onChange={e => set('filiere', e.target.value)}
-                                placeholder="Ex: Informatique"
-                                style={inputStyle('filiere')}
+                                style={{ ...inputStyle('filiere'), appearance: 'none', cursor: 'pointer' }}
                                 onFocus={e => e.target.style.borderColor = TEAL}
                                 onBlur={e => e.target.style.borderColor = errors.filiere ? '#ef4444' : '#e5e7eb'}
-                            />
+                            >
+                                <option value="">Selectionnez une specialite</option>
+                                <option value="Informatique & Reseaux">Informatique & Reseaux</option>
+                                <option value="Genie Civil">Genie Civil</option>
+                                <option value="Comptabilite & Gestion">Comptabilite & Gestion</option>
+                                <option value="Marketing & Commerce">Marketing & Commerce</option>
+                                <option value="Logistique & Transport">Logistique & Transport</option>
+                                <option value="Secretariat de Direction">Secretariat de Direction</option>
+                                <option value="Genie Logiciel">Genie Logiciel</option>
+                                <option value="Sante">Sante</option>
+                                <option value="Informatique Industrielle & Automatisme">Informatique Industrielle & Automatisme</option>
+                                <option value="Production Vegetale">Production Vegetale</option>
+                                <option value="Sciences Infirmieres">Sciences Infirmieres</option>
+                                <option value="Techniques de Laboratoire">Techniques de Laboratoire</option>
+                                <option value="Assistant Manager">Assistant Manager</option>
+                            </select>
                             {errors.filiere && <span style={{ color: '#ef4444', fontSize: 11 }}>{errors.filiere}</span>}
                         </div>
                     </div>
@@ -254,8 +268,313 @@ function UploadModal({ categories, onClose, onSuccess }) {
     );
 }
 
+// ── Exam Taking Modal ────────────────────────────────────────────────────────
+function ExamTaker({ exam, onClose }) {
+    const [answers, setAnswers] = useState('');
+    const [correction, setCorrection] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [showCorrection, setShowCorrection] = useState(false);
+    const [timer, setTimer] = useState(0);
+    const [started, setStarted] = useState(false);
+
+    const getViewUrl = (path) => {
+        if (!path) return null;
+        const isPdf = path.toLowerCase().endsWith('.pdf');
+        if (isPdf) {
+            return (path.startsWith('http') ? path : `/storage/${path}`) + '#toolbar=0&navpanes=0';
+        }
+        return `/api/exams/view-pdf?path=${encodeURIComponent(path)}#toolbar=0&navpanes=0`;
+    };
+
+    const fileUrl = getViewUrl(exam.file_path);
+    const isFileCorrectionPath = exam.correction_path && !exam.correction_path.endsWith('.md');
+    const correctionUrl = isFileCorrectionPath ? getViewUrl(exam.correction_path) : null;
+    const [aiCorrectionText, setAiCorrectionText] = useState(null);
+    const [loadingAiCorrection, setLoadingAiCorrection] = useState(false);
+
+    const loadAiCorrection = async () => {
+        if (aiCorrectionText) { setShowCorrection(!showCorrection); return; }
+        setLoadingAiCorrection(true);
+        setShowCorrection(true);
+        try {
+            const res = await api.get(`/api/exams/${exam.id}/ai-correction`);
+            setAiCorrectionText(res.data?.correction || 'Correction non disponible.');
+        } catch {
+            setAiCorrectionText('Erreur lors du chargement de la correction.');
+        } finally {
+            setLoadingAiCorrection(false);
+        }
+    };
+
+    const hasCorrection = exam.correction_path || exam.is_corrected;
+
+    // Timer
+    useEffect(() => {
+        if (!started) return;
+        const interval = setInterval(() => setTimer(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, [started]);
+
+    const formatTime = (s) => {
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return `${h > 0 ? h + ':' : ''}${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    };
+
+    const handleSubmit = async () => {
+        if (!answers.trim()) return;
+        setSubmitting(true);
+        try {
+            const res = await api.post('/api/exams/correct', {
+                exam_id: exam.id,
+                answers: answers,
+                time_spent: timer,
+            });
+            setCorrection(res.data?.correction || res.data);
+            setStarted(false);
+        } catch (err) {
+            toast.error('Erreur lors de la correction. Reessayez.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)',
+            display: 'flex', flexDirection: 'column',
+        }}>
+            {/* Header */}
+            <div style={{
+                background: NAVY, padding: '10px 20px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                flexShrink: 0, borderBottom: `2px solid ${TEAL}`,
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                    <i className="fas fa-pen-fancy" style={{ color: TEAL, fontSize: 16 }}></i>
+                    <h3 style={{ color: 'white', fontSize: 14, fontWeight: 700, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {exam.title}
+                    </h3>
+                    {exam.matiere && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>— {exam.matiere}</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {/* Timer */}
+                    {started && (
+                        <div style={{
+                            background: 'rgba(255,255,255,0.1)', borderRadius: 8,
+                            padding: '5px 12px', display: 'flex', alignItems: 'center', gap: 6,
+                            color: '#F5A623', fontSize: 13, fontWeight: 700, fontFamily: 'monospace',
+                        }}>
+                            <i className="fas fa-clock"></i>
+                            {formatTime(timer)}
+                        </div>
+                    )}
+                    {hasCorrection && !correction && (
+                        <button
+                            onClick={() => {
+                                if (correctionUrl) { setShowCorrection(!showCorrection); }
+                                else { loadAiCorrection(); }
+                            }}
+                            disabled={loadingAiCorrection}
+                            style={{
+                                background: showCorrection ? '#F5A623' : 'rgba(255,255,255,0.1)',
+                                color: 'white', border: 'none', borderRadius: 8,
+                                padding: '6px 12px', fontSize: 11, fontWeight: 600,
+                                cursor: loadingAiCorrection ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                            }}
+                        >
+                            {loadingAiCorrection
+                                ? <><i className="fas fa-circle-notch fa-spin"></i> Chargement...</>
+                                : <><i className="fas fa-check-circle"></i> Correction</>
+                            }
+                        </button>
+                    )}
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8,
+                            color: 'white', width: 32, height: 32, cursor: 'pointer', fontSize: 14,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                    >
+                        <i className="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                {/* Left: PDF */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    {showCorrection && correctionUrl ? (
+                        <iframe src={correctionUrl} style={{ flex: 1, border: 'none', background: 'white' }} title="Correction" />
+                    ) : showCorrection && aiCorrectionText ? (
+                        <div style={{ flex: 1, overflow: 'auto', background: 'white', padding: '24px 32px' }}>
+                            <div style={{ maxWidth: 800, margin: '0 auto' }}>
+                                <h3 style={{ color: TEAL, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <i className="fas fa-check-circle"></i> Correction IA
+                                </h3>
+                                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: 14, color: '#1f2937' }}>
+                                    {aiCorrectionText}
+                                </div>
+                            </div>
+                        </div>
+                    ) : showCorrection && loadingAiCorrection ? (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
+                            <div style={{ textAlign: 'center', color: '#6b7280' }}>
+                                <i className="fas fa-circle-notch fa-spin" style={{ fontSize: 32, color: TEAL, marginBottom: 12 }}></i>
+                                <p>Generation de la correction en cours...</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <iframe src={fileUrl} style={{ flex: 1, border: 'none', background: 'white' }} title="Epreuve" />
+                    )}
+                </div>
+
+                {/* Right: Answer panel */}
+                <div style={{
+                    width: 420, flexShrink: 0, background: '#f8fafb',
+                    display: 'flex', flexDirection: 'column', borderLeft: `2px solid ${TEAL}30`,
+                }}>
+                    {!correction ? (
+                        <>
+                            {/* Answer header */}
+                            <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid #e5e7eb' }}>
+                                <h4 style={{ fontSize: 14, fontWeight: 700, color: NAVY, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <i className="fas fa-edit" style={{ color: TEAL }}></i>
+                                    Vos reponses
+                                </h4>
+                                <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>
+                                    Lisez l'epreuve a gauche et redigez vos reponses ci-dessous
+                                </p>
+                            </div>
+
+                            {/* Start button or textarea */}
+                            {!started ? (
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{
+                                            width: 70, height: 70, borderRadius: '50%', margin: '0 auto 16px',
+                                            background: `${TEAL}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            <i className="fas fa-play" style={{ fontSize: 28, color: TEAL, marginLeft: 4 }}></i>
+                                        </div>
+                                        <h4 style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 8 }}>Pret a composer ?</h4>
+                                        <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 20, lineHeight: 1.6 }}>
+                                            Le chronometre demarrera quand vous commencerez.<br />
+                                            Redigez vos reponses puis soumettez pour correction IA.
+                                        </p>
+                                        <button
+                                            onClick={() => setStarted(true)}
+                                            style={{
+                                                background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                                                color: 'white', border: 'none', borderRadius: 12,
+                                                padding: '12px 28px', fontSize: 14, fontWeight: 700,
+                                                cursor: 'pointer', boxShadow: '0 4px 14px rgba(91,188,180,0.35)',
+                                            }}
+                                        >
+                                            <i className="fas fa-play" style={{ marginRight: 8 }}></i>
+                                            Commencer l'examen
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <textarea
+                                        value={answers}
+                                        onChange={e => setAnswers(e.target.value)}
+                                        placeholder={"Exercice 1:\nQuestion a) ...\nReponse: ...\n\nQuestion b) ...\nReponse: ...\n\nExercice 2:\n..."}
+                                        style={{
+                                            flex: 1, border: 'none', outline: 'none', resize: 'none',
+                                            padding: '16px 18px', fontSize: 13, lineHeight: 1.7,
+                                            fontFamily: 'inherit', color: '#1e293b', background: 'white',
+                                        }}
+                                    />
+                                    {/* Submit */}
+                                    <div style={{
+                                        padding: '12px 18px', borderTop: '1px solid #e5e7eb',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        background: 'white',
+                                    }}>
+                                        <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                                            {answers.length} caracteres
+                                        </span>
+                                        <button
+                                            onClick={handleSubmit}
+                                            disabled={submitting || !answers.trim()}
+                                            style={{
+                                                background: submitting || !answers.trim() ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                                                color: 'white', border: 'none', borderRadius: 10,
+                                                padding: '9px 20px', fontSize: 13, fontWeight: 700,
+                                                cursor: submitting || !answers.trim() ? 'not-allowed' : 'pointer',
+                                                display: 'flex', alignItems: 'center', gap: 7,
+                                                boxShadow: submitting ? 'none' : '0 3px 10px rgba(91,188,180,0.3)',
+                                            }}
+                                        >
+                                            {submitting ? (
+                                                <><i className="fas fa-circle-notch fa-spin"></i> Correction en cours...</>
+                                            ) : (
+                                                <><i className="fas fa-paper-plane"></i> Soumettre pour correction</>
+                                            )}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    ) : (
+                        /* Correction result */
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 18px' }}>
+                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                <div style={{
+                                    width: 60, height: 60, borderRadius: '50%', margin: '0 auto 12px',
+                                    background: `${TEAL}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <i className="fas fa-check-double" style={{ fontSize: 26, color: TEAL }}></i>
+                                </div>
+                                <h4 style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 4 }}>Correction terminee</h4>
+                                <p style={{ fontSize: 12, color: '#9ca3af' }}>
+                                    Temps: {formatTime(timer)}
+                                </p>
+                                {correction.note && (
+                                    <div style={{
+                                        fontSize: 28, fontWeight: 900, color: TEAL,
+                                        margin: '10px 0',
+                                    }}>
+                                        {correction.note}/20
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{
+                                background: 'white', borderRadius: 14, padding: '18px 16px',
+                                border: '1px solid #e5e7eb', fontSize: 13, lineHeight: 1.8,
+                                color: '#374151', whiteSpace: 'pre-wrap',
+                            }}>
+                                {correction.details || correction.correction || (typeof correction === 'string' ? correction : JSON.stringify(correction, null, 2))}
+                            </div>
+                            <button
+                                onClick={() => { setCorrection(null); setAnswers(''); setTimer(0); setStarted(false); }}
+                                style={{
+                                    width: '100%', marginTop: 16, background: NAVY,
+                                    color: 'white', border: 'none', borderRadius: 10,
+                                    padding: '11px', fontSize: 13, fontWeight: 600,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <i className="fas fa-redo" style={{ marginRight: 8 }}></i>
+                                Recommencer
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Exam Card ────────────────────────────────────────────────────────────────
-function ExamCard({ exam, onDownload }) {
+function ExamCard({ exam, onView }) {
     const isAdmin = exam.source === 'admin' || !exam.student_id;
     return (
         <div style={{
@@ -345,11 +664,11 @@ function ExamCard({ exam, onDownload }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#9ca3af' }}>
-                    <i className="fas fa-download"></i>
-                    <span>{exam.downloads_count || 0} telechargement{(exam.downloads_count || 0) !== 1 ? 's' : ''}</span>
+                    <i className="fas fa-eye"></i>
+                    <span>Consulter</span>
                 </div>
                 <button
-                    onClick={() => onDownload(exam)}
+                    onClick={() => onView(exam)}
                     style={{
                         background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
                         color: 'white', border: 'none', borderRadius: 20,
@@ -361,8 +680,8 @@ function ExamCard({ exam, onDownload }) {
                     onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(91,188,180,0.45)'}
                     onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 6px rgba(91,188,180,0.30)'}
                 >
-                    <i className="fas fa-download"></i>
-                    Telecharger
+                    <i className="fas fa-pen-fancy"></i>
+                    Passer l'examen
                 </button>
             </div>
         </div>
@@ -408,7 +727,7 @@ export default function Exams() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showUpload, setShowUpload] = useState(false);
-    const [downloading, setDownloading] = useState(null);
+    const [viewingExam, setViewingExam] = useState(null);
 
     // Filters
     const [filters, setFilters] = useState({
@@ -440,31 +759,6 @@ export default function Exams() {
         fetchExams();
     }, [fetchExams]);
 
-    const handleDownload = async (exam) => {
-        if (downloading === exam.id) return;
-        setDownloading(exam.id);
-        try {
-            const response = await api.get(`/api/exams/${exam.id}/download`, { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = exam.file_name || `${exam.title}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            // Update local download count
-            setExams(prev => prev.map(e => e.id === exam.id
-                ? { ...e, downloads_count: (e.downloads_count || 0) + 1 }
-                : e
-            ));
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Erreur lors du telechargement.');
-        } finally {
-            setDownloading(null);
-        }
-    };
-
     const clearFilters = () => {
         setFilters({ category_id: '', filiere: '', matiere: '', niveau: '', annee: '' });
         setSearch('');
@@ -492,7 +786,7 @@ export default function Exams() {
                                 Bibliotheque de sujets d'examens
                             </h1>
                             <p style={{ color: '#6b7280', fontSize: 14, lineHeight: 1.6, maxWidth: 560, margin: 0 }}>
-                                Acces aux sujets d'examens classes par filiere, matiere et niveau. Telechargez gratuitement ou partagez vos propres sujets.
+                                Acces aux sujets d'examens classes par specialite, matiere et niveau. Consultez ou partagez vos propres sujets.
                             </p>
                         </div>
                         <button
@@ -519,7 +813,7 @@ export default function Exams() {
                             { icon: 'fas fa-file-alt', val: exams.length, label: 'sujets disponibles', color: TEAL },
                             { icon: 'fas fa-shield-alt', val: exams.filter(e => !e.student_id).length, label: 'officiels', color: NAVY },
                             { icon: 'fas fa-user-graduate', val: exams.filter(e => !!e.student_id).length, label: 'etudiant(s)', color: '#F5A623' },
-                            { icon: 'fas fa-download', val: exams.reduce((s, e) => s + (e.downloads_count || 0), 0), label: 'telechargements', color: '#6366f1' },
+                            { icon: 'fas fa-eye', val: exams.reduce((s, e) => s + (e.views_count || 0), 0), label: 'consultations', color: '#6366f1' },
                         ].map((s, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <div style={{ width: 36, height: 36, borderRadius: 10, background: `${s.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color, fontSize: 15 }}>
@@ -562,7 +856,7 @@ export default function Exams() {
                         options={categories.map(c => ({ value: String(c.id), label: c.name }))}
                     />
                     <FilterSelect
-                        label="Filiere" value={filters.filiere} icon="fas fa-graduation-cap"
+                        label="Specialite" value={filters.filiere} icon="fas fa-graduation-cap"
                         onChange={v => setFilter('filiere', v)}
                         options={filiereOptions}
                     />
@@ -677,8 +971,7 @@ export default function Exams() {
                             <ExamCard
                                 key={exam.id}
                                 exam={exam}
-                                onDownload={handleDownload}
-                                downloading={downloading === exam.id}
+                                onView={setViewingExam}
                             />
                         ))}
                     </div>
@@ -691,6 +984,14 @@ export default function Exams() {
                     categories={categories}
                     onClose={() => setShowUpload(false)}
                     onSuccess={fetchExams}
+                />
+            )}
+
+            {/* ── Exam Taker Modal ── */}
+            {viewingExam && (
+                <ExamTaker
+                    exam={viewingExam}
+                    onClose={() => setViewingExam(null)}
                 />
             )}
         </div>

@@ -43,10 +43,11 @@ export default function Dashboard() {
     const [recentVideos, setRecentVideos] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loadingVideos, setLoadingVideos] = useState(true);
-    const [formations, setFormations] = useState([]);
-    const [formationsCat, setFormationsCat] = useState(null);
     const [loadingFormations, setLoadingFormations] = useState(true);
     const [watchHistory, setWatchHistory] = useState([]);
+    const [ueProgress, setUeProgress] = useState([]);
+    const [loadingProgress, setLoadingProgress] = useState(true);
+    const [statsData, setStatsData] = useState(null);
 
     useEffect(() => {
         api.get('/api/public/recent-videos')
@@ -56,79 +57,36 @@ export default function Dashboard() {
         api.get('/api/public/categories')
             .then(r => setCategories(r.data.data || []))
             .catch(() => {});
-        api.get('/api/my-formations')
-            .then(r => {
-                const fmts = r.data.formations || [];
-                setFormations(fmts);
-                setFormationsCat(r.data.category || null);
-                // Build watch history from localStorage
-                const history = JSON.parse(localStorage.getItem('insam_watch_history') || '[]');
-                // Match history entries with formations data
-                const recentCourses = history
-                    .map(h => {
-                        const formation = fmts.find(f => (f.intitule || f.title) === h.formationTitle);
-                        if (!formation) return null;
-                        const totalChapitres = formation.chapitres?.length || 1;
-                        const watchedCount = h.watchedChapitres?.length || 0;
-                        return { ...h, formation, totalChapitres, watchedCount, progress: Math.round((watchedCount / totalChapitres) * 100) };
-                    })
-                    .filter(Boolean);
-                setWatchHistory(recentCourses);
-            })
-            .catch(() => {})
-            .finally(() => setLoadingFormations(false));
-    }, []);
-
-    // Track video click in watch history
-    const trackVideoWatch = (formation, chapitre, video) => {
+        // Load watch history from localStorage
         const history = JSON.parse(localStorage.getItem('insam_watch_history') || '[]');
-        const fTitle = formation.intitule || formation.title;
-        let entry = history.find(h => h.formationTitle === fTitle);
-        if (!entry) {
-            entry = { formationTitle: fTitle, img: formation.img, lastWatched: Date.now(), watchedChapitres: [] };
-            history.unshift(entry);
-        } else {
-            entry.lastWatched = Date.now();
-            // Move to top
-            const idx = history.indexOf(entry);
-            history.splice(idx, 1);
-            history.unshift(entry);
-        }
-        const chTitle = chapitre.intitule || chapitre.title;
-        if (!entry.watchedChapitres.includes(chTitle)) {
-            entry.watchedChapitres.push(chTitle);
-        }
-        entry.lastVideo = video.intitule || video.title || 'Video';
-        entry.lastChapitre = chTitle;
-        localStorage.setItem('insam_watch_history', JSON.stringify(history.slice(0, 20)));
-        // Update state
-        setWatchHistory(prev => {
-            const updated = history.map(h => {
-                const fmt = formations.find(f => (f.intitule || f.title) === h.formationTitle);
-                if (!fmt) return null;
-                const total = fmt.chapitres?.length || 1;
-                return { ...h, formation: fmt, totalChapitres: total, watchedCount: h.watchedChapitres?.length || 0, progress: Math.round(((h.watchedChapitres?.length || 0) / total) * 100) };
-            }).filter(Boolean);
-            return updated;
-        });
-    };
+        setWatchHistory(history.slice(0, 5));
+        setLoadingFormations(false);
+        // Load UE progression data
+        api.get('/api/course-progress/ue')
+            .then(r => setUeProgress(r.data?.subjects || []))
+            .catch(() => {})
+            .finally(() => setLoadingProgress(false));
+        // Load real stats
+        api.get('/api/progress/overview')
+            .then(r => setStatsData(r.data?.data || r.data || null))
+            .catch(() => {});
+    }, []);
 
     const firstName = user?.name?.split(' ')[0] || 'Etudiant';
 
     const stats = [
-        { icon: 'fas fa-clipboard-check', label: 'Quiz completes', value: '3', sub: 'evaluations', color: TEAL, bg: '#e8f8f5' },
-        { icon: 'fas fa-play-circle',     label: 'Videos regardees', value: '12', sub: 'videos TP', color: '#F5A623', bg: '#fff8ec' },
-        { icon: 'fas fa-file-alt',        label: 'Sujets consultes', value: '7', sub: 'sujets d\'examen', color: '#E74C3C', bg: '#fef2f2' },
-        { icon: 'fas fa-trophy',          label: 'Score moyen', value: '76%', sub: 'aux evaluations', color: NAVY, bg: '#f0f4ff' },
+        { icon: 'fas fa-clipboard-check', label: 'Quiz completes', value: statsData?.total_quizzes || '0', sub: 'evaluations', color: TEAL, bg: '#e8f8f5' },
+        { icon: 'fas fa-book-reader',     label: 'Cours suivis', value: statsData?.total_courses || '0', sub: 'cours lus', color: '#F5A623', bg: '#fff8ec' },
+        { icon: 'fas fa-file-alt',        label: 'Sujets consultes', value: statsData?.total_exams || '0', sub: 'sujets d\'examen', color: '#E74C3C', bg: '#fef2f2' },
+        { icon: 'fas fa-trophy',          label: 'Score moyen', value: statsData?.avg_score ? `${Math.round(statsData.avg_score)}%` : '0%', sub: 'aux evaluations', color: NAVY, bg: '#f0f4ff' },
     ];
 
     const quickLinks = [
         { icon: 'fas fa-robot',           label: 'Assistant IA',       sub: 'Posez vos questions 24h/7', to: '/assistant',   color: TEAL,      bg: '#e8f8f5' },
         { icon: 'fas fa-clipboard-check', label: 'Evaluations',        sub: 'Quiz interactifs',          to: '/evaluations', color: '#F5A623', bg: '#fff8ec' },
-        { icon: 'fas fa-file-alt',        label: "Sujets d'examens",   sub: 'Par filiere et niveau',     to: '/sujets',      color: '#E74C3C', bg: '#fef2f2' },
-        { icon: 'fas fa-book',             label: 'Bibliotheque',        sub: 'Cours, videos, epreuves',   to: '/bibliotheque', color: '#8B5CF6', bg: '#f5f3ff' },
+        { icon: 'fas fa-book',             label: 'Bibliotheque',        sub: 'Sujets, epreuves, corrections',   to: '/bibliotheque', color: '#8B5CF6', bg: '#f5f3ff' },
         { icon: 'fas fa-comments',          label: 'Communaute',          sub: 'Chat entre etudiants',      to: '/communaute',  color: '#10B981', bg: '#ecfdf5' },
-        { icon: 'fas fa-graduation-cap',  label: 'Formations',         sub: 'Toutes les filieres',       to: '/formations',  color: NAVY,      bg: '#f0f4ff' },
+        { icon: 'fas fa-graduation-cap',  label: 'Formations',         sub: 'Toutes les specialites',       to: '/formations',  color: NAVY,      bg: '#f0f4ff' },
     ];
 
     return (
@@ -246,7 +204,7 @@ export default function Dashboard() {
                                 <i className="fas fa-play-circle" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
                                 Derniers cours
                             </h2>
-                            <Link to="/bibliotheque" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                            <Link to="/formations" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
                                 Voir tout &rarr;
                             </Link>
                         </div>
@@ -305,7 +263,7 @@ export default function Dashboard() {
                             <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
                                 <i className="fas fa-book-open" style={{ fontSize: 32, marginBottom: 12, color: '#e5e7eb' }}></i>
                                 <p style={{ fontSize: 14 }}>Vous n'avez pas encore commence de cours.</p>
-                                <p style={{ fontSize: 12, color: '#b0b0b0' }}>Cliquez sur une video dans "Cours de votre filiere" pour commencer.</p>
+                                <p style={{ fontSize: 12, color: '#b0b0b0' }}>Explorez les formations pour commencer vos cours.</p>
                             </div>
                         )}
                     </div>
@@ -378,7 +336,7 @@ export default function Dashboard() {
                                 Activite recente
                             </h3>
                             {[
-                                { icon: 'fas fa-play-circle', text: 'Video TP Python regardee', time: 'Il y a 2h', color: TEAL },
+                                { icon: 'fas fa-book-reader', text: 'Cours Algorithmes lu', time: 'Il y a 2h', color: TEAL },
                                 { icon: 'fas fa-clipboard-check', text: 'Quiz Algorithmes complete', time: 'Hier', color: '#F5A623' },
                                 { icon: 'fas fa-file-alt', text: 'Sujet examen consulte', time: 'Il y a 3j', color: '#E74C3C' },
                                 { icon: 'fas fa-robot', text: 'Session Assistant IA', time: 'Il y a 5j', color: NAVY },
@@ -410,7 +368,7 @@ export default function Dashboard() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                                     <h3 style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>
                                         <i className="fas fa-graduation-cap" style={{ color: TEAL, marginRight: 8 }}></i>
-                                        Mes filieres
+                                        Mes specialites
                                     </h3>
                                     <Link to="/formations" style={{ fontSize: 11, color: TEAL, fontWeight: 600, textDecoration: 'none' }}>Voir tout</Link>
                                 </div>
@@ -445,87 +403,82 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Formations InsamTechs for user's filière - OUTSIDE grid */}
-                {!loadingFormations && formations.length > 0 && (
-                    <div style={{ marginTop: 32 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                            <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>
-                                <i className="fas fa-graduation-cap" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
-                                Cours de votre filiere {formationsCat ? `- ${formationsCat.name}` : ''}
-                            </h2>
-                            <Link to="/bibliotheque" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-                                Voir tout &rarr;
-                            </Link>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                            {formations.map((f, fi) => (
-                                <div key={fi} style={{
-                                    background: 'white', borderRadius: 16, overflow: 'hidden',
-                                    border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                                }}>
-                                    <div style={{
-                                        height: 100,
-                                        background: `linear-gradient(135deg, ${TEAL}30, ${NAVY}20)`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        position: 'relative',
-                                    }}>
-                                        {f.img ? (
-                                            <img src={f.img} alt={f.intitule} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                 onError={e => { e.target.style.display = 'none'; }} />
-                                        ) : (
-                                            <i className="fas fa-book-open" style={{ fontSize: 28, color: TEAL }}></i>
-                                        )}
-                                    </div>
-                                    <div style={{ padding: '14px 16px' }}>
-                                        <h3 style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 6, lineHeight: 1.4, textTransform: 'capitalize' }}>
-                                            {f.intitule || 'Formation'}
-                                        </h3>
-                                        {f.chapitres && f.chapitres.length > 0 && (
-                                            <div style={{ marginTop: 8 }}>
-                                                <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', marginBottom: 6 }}>
-                                                    {f.chapitres.length} chapitre{f.chapitres.length > 1 ? 's' : ''}
-                                                </div>
-                                                {f.chapitres.slice(0, 3).map((ch, ci) => (
-                                                    <div key={ci} style={{ marginBottom: 4 }}>
-                                                        <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 2, textTransform: 'capitalize' }}>
-                                                            {ch.intitule}
-                                                        </div>
-                                                        {ch.videos && ch.videos.slice(0, 2).map((vid, vi) => (
-                                                            <a
-                                                                key={vi}
-                                                                href={vid.lien || '#'}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                onClick={() => trackVideoWatch(f, ch, vid)}
-                                                                style={{
-                                                                    display: 'flex', alignItems: 'center', gap: 6,
-                                                                    padding: '4px 8px', marginLeft: 8,
-                                                                    fontSize: 11, color: TEAL, textDecoration: 'none',
-                                                                    borderRadius: 6,
-                                                                    transition: 'background .15s',
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.background = '#e8f8f5'}
-                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                                            >
-                                                                <i className="fas fa-play-circle" style={{ fontSize: 10 }}></i>
-                                                                <span style={{ textTransform: 'capitalize' }}>{vid.intitule || 'Video'}</span>
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                ))}
-                                                {f.chapitres.length > 3 && (
-                                                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-                                                        +{f.chapitres.length - 3} autres chapitres...
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                {/* ── PROGRESSION PAR UE ── */}
+                <div style={{ marginTop: 36 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>
+                            <i className="fas fa-chart-line" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
+                            Progression par UE
+                        </h2>
+                        <Link to="/progression" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                            Voir tout &rarr;
+                        </Link>
                     </div>
-                )}
+
+                    {loadingProgress ? (
+                        <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
+                            <i className="fas fa-spinner fa-spin" style={{ fontSize: 24, marginBottom: 12 }}></i>
+                            <p>Chargement de la progression...</p>
+                        </div>
+                    ) : ueProgress.length > 0 ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                            {ueProgress.slice(0, 6).map((ue, i) => {
+                                const readPct = Math.round(ue.course_progress || 0);
+                                const quizPct = Math.round(ue.quiz_progress || ue.avg_score || 0);
+                                return (
+                                    <div key={i} style={{
+                                        background: 'white', borderRadius: 14, padding: '18px 20px',
+                                        border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                                            <h3 style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.3, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {ue.subject || ue.name || 'UE'}
+                                            </h3>
+                                            <span style={{
+                                                fontSize: 11, fontWeight: 700, color: readPct >= 80 ? '#10b981' : readPct >= 50 ? '#f59e0b' : '#ef4444',
+                                                background: readPct >= 80 ? '#d1fae5' : readPct >= 50 ? '#fef3c7' : '#fee2e2',
+                                                padding: '2px 8px', borderRadius: 6, flexShrink: 0, marginLeft: 8,
+                                            }}>
+                                                {readPct}%
+                                            </span>
+                                        </div>
+                                        {/* Lecture progress */}
+                                        <div style={{ marginBottom: 10 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>
+                                                    <i className="fas fa-book-reader" style={{ marginRight: 4, color: TEAL }}></i>Lecture
+                                                </span>
+                                                <span style={{ fontSize: 11, fontWeight: 700, color: TEAL }}>{readPct}%</span>
+                                            </div>
+                                            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
+                                                <div style={{ width: `${readPct}%`, height: '100%', background: `linear-gradient(90deg, ${TEAL}, #3da89e)`, borderRadius: 3, transition: 'width 0.5s' }}></div>
+                                            </div>
+                                        </div>
+                                        {/* Quiz progress */}
+                                        <div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>
+                                                    <i className="fas fa-clipboard-check" style={{ marginRight: 4, color: '#f59e0b' }}></i>Quiz
+                                                </span>
+                                                <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>{quizPct}%</span>
+                                            </div>
+                                            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
+                                                <div style={{ width: `${quizPct}%`, height: '100%', background: 'linear-gradient(90deg, #f59e0b, #d97706)', borderRadius: 3, transition: 'width 0.5s' }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
+                            <i className="fas fa-chart-bar" style={{ fontSize: 32, marginBottom: 12, color: '#e5e7eb' }}></i>
+                            <p style={{ fontSize: 14 }}>Aucune donnee de progression.</p>
+                            <p style={{ fontSize: 12, color: '#b0b0b0' }}>Completez des quiz et des cours pour voir votre progression.</p>
+                        </div>
+                    )}
+                </div>
+
             </div>
         </div>
     );

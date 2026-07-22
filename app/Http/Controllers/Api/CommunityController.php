@@ -4,51 +4,57 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CommunityMessage;
-use App\Models\Category;
+use App\Models\Specialite;
 use Illuminate\Http\Request;
 
 class CommunityController extends Controller
 {
     /**
-     * Build channel slug from filiere + niveau.
+     * Build channel slug from a name.
      */
-    private function buildChannel(?string $filiere, ?string $niveau): ?string
+    private function buildChannel(?string $name, ?string $suffix = null): ?string
     {
-        if (!$filiere) return null;
-        $slug = strtolower(str_replace(' ', '-', trim($filiere)));
-        if ($niveau) {
-            $slug .= '-' . strtoupper(trim($niveau));
+        if (!$name) return null;
+        $slug = strtolower(str_replace(' ', '-', trim($name)));
+        if ($suffix) {
+            $slug .= '-' . strtoupper(trim($suffix));
         }
         return $slug;
     }
 
     /**
-     * Get available channels for the user (their own + general).
+     * Get available channels for the user (speciality channels + general).
+     * Each speciality automatically has its own forum channel.
      */
     public function channels(Request $request)
     {
         $user = $request->user();
         $myChannel = $this->buildChannel($user->filiere, $user->niveau);
-        $filiereChannel = $this->buildChannel($user->filiere, null);
 
         $channels = [];
 
+        // User's own speciality + level channel
         if ($myChannel) {
             $channels[] = [
                 'slug' => $myChannel,
-                'name' => ($user->filiere ?? 'Ma filiere') . ' - ' . ($user->niveau ?? ''),
-                'type' => 'filiere_niveau',
+                'name' => ($user->filiere ?? 'Ma specialite') . ' - ' . ($user->niveau ?? ''),
+                'type' => 'specialite',
                 'count' => CommunityMessage::where('channel', $myChannel)->count(),
             ];
         }
 
-        if ($filiereChannel && $filiereChannel !== $myChannel) {
-            $channels[] = [
-                'slug' => $filiereChannel,
-                'name' => $user->filiere ?? 'Ma filiere',
-                'type' => 'filiere',
-                'count' => CommunityMessage::where('channel', $filiereChannel)->count(),
-            ];
+        // All speciality channels (auto-created from specialites table)
+        $specialites = Specialite::orderBy('name')->get();
+        foreach ($specialites as $spec) {
+            $slug = $this->buildChannel($spec->name);
+            if ($slug && $slug !== $myChannel) {
+                $channels[] = [
+                    'slug' => $slug,
+                    'name' => $spec->name,
+                    'type' => 'specialite',
+                    'count' => CommunityMessage::where('channel', $slug)->count(),
+                ];
+            }
         }
 
         // General channel

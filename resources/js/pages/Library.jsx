@@ -1,1564 +1,796 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LangContext';
+import toast from 'react-hot-toast';
 
 const TEAL = '#5BBCB4';
 const NAVY = '#1B2A4A';
 const W = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' };
 
-const TABS = [
-    { key: 'documents', label: 'Cours PDF', icon: 'fas fa-file-pdf' },
-    { key: 'videos', label: 'Cours Videos', icon: 'fas fa-play-circle' },
-    { key: 'exams', label: 'Epreuves', icon: 'fas fa-file-alt' },
+const TAB_KEYS = [
+    { key: 'sujets', tKey: 'library.tab_subjects', icon: 'fas fa-file-alt' },
+    { key: 'generate', tKey: 'library.tab_generate', icon: 'fas fa-magic' },
+    { key: 'enrich', tKey: 'library.tab_enrich', icon: 'fas fa-plus-circle' },
+    { key: 'correct', tKey: 'library.tab_correct', icon: 'fas fa-check-double' },
 ];
 
-const GRADIENTS = [
-    'linear-gradient(135deg, #5BBCB4 0%, #1B2A4A 100%)',
-    'linear-gradient(135deg, #F5A623 0%, #E07B00 100%)',
-    'linear-gradient(135deg, #8B5CF6 0%, #5B21B6 100%)',
-    'linear-gradient(135deg, #E74C3C 0%, #9B1C1C 100%)',
-    'linear-gradient(135deg, #10B981 0%, #065F46 100%)',
-    'linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%)',
-    'linear-gradient(135deg, #F59E0B 0%, #92400E 100%)',
-    'linear-gradient(135deg, #EC4899 0%, #831843 100%)',
-    'linear-gradient(135deg, #14B8A6 0%, #134E4A 100%)',
-    'linear-gradient(135deg, #6366F1 0%, #312E81 100%)',
-];
+const libCSS = `
+.lib-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+.lib-tabs { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; }
+.lib-modal-body { max-height:70vh; overflow-y:auto; }
+@media(max-width:1024px){ .lib-grid3 { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:768px){ .lib-grid3 { grid-template-columns:1fr; } .lib-tabs { gap:0; } }
+.lib-md h1,.lib-md h2,.lib-md h3 { color:${NAVY}; margin:16px 0 8px; }
+.lib-md h1 { font-size:20px; } .lib-md h2 { font-size:17px; } .lib-md h3 { font-size:15px; }
+.lib-md p { margin:6px 0; line-height:1.7; color:#374151; }
+.lib-md ul,.lib-md ol { margin:6px 0 6px 20px; color:#374151; }
+.lib-md li { margin:4px 0; line-height:1.6; }
+.lib-md strong { color:${NAVY}; }
+.lib-md code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:13px; }
+.lib-md pre { background:#1e293b; color:#e2e8f0; padding:16px; border-radius:10px; overflow-x:auto; font-size:13px; }
+`;
 
-const ACCENT_COLORS = [
-    TEAL, '#F5A623', '#8B5CF6', '#E74C3C', '#10B981',
-    '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6', '#6366F1',
-];
-
-// ── Video Player Modal ──
-function VideoModal({ video, onClose }) {
-    if (!video) return null;
-    return (
-        <div
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-            style={{
-                position: 'fixed', inset: 0, zIndex: 1000,
-                background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(6px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-            }}
-        >
-            <div style={{
-                background: '#111', borderRadius: 16, width: '100%', maxWidth: 900,
-                boxShadow: '0 24px 60px rgba(0,0,0,0.4)', overflow: 'hidden',
-            }}>
-                <div style={{
-                    padding: '14px 20px', background: NAVY,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                        <i className="fas fa-play-circle" style={{ color: TEAL, fontSize: 18 }}></i>
-                        <h3 style={{
-                            fontSize: 14, fontWeight: 700, color: 'white', margin: 0,
-                            textTransform: 'capitalize',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        }}>
-                            {video.intitule || video.title || 'Video'}
-                        </h3>
-                    </div>
-                    <button onClick={onClose} style={{
-                        background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8,
-                        width: 34, height: 34, cursor: 'pointer', fontSize: 14, color: 'white',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, marginLeft: 12,
-                    }}>
-                        <i className="fas fa-times"></i>
-                    </button>
-                </div>
-                <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
-                    <iframe
-                        src={video.lien}
-                        style={{
-                            position: 'absolute', top: 0, left: 0,
-                            width: '100%', height: '100%', border: 'none',
-                        }}
-                        allow="autoplay; encrypted-media"
-                        allowFullScreen
-                    />
-                </div>
-            </div>
-        </div>
-    );
+// ── Markdown renderer (simple) ──
+function Markdown({ text }) {
+    if (!text) return null;
+    const html = text
+        .replace(/### (.*)/g, '<h3>$1</h3>')
+        .replace(/## (.*)/g, '<h2>$1</h2>')
+        .replace(/# (.*)/g, '<h1>$1</h1>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^- (.*)/gm, '<li>$1</li>')
+        .replace(/^(\d+)\. (.*)/gm, '<li>$2</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br/>');
+    return <div className="lib-md" dangerouslySetInnerHTML={{ __html: `<p>${html}</p>` }} />;
 }
 
-// ── PDF Viewer Modal ──
-function PdfModal({ doc, onClose }) {
-    if (!doc) return null;
-    return (
-        <div
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-            style={{
-                position: 'fixed', inset: 0, zIndex: 1000,
-                background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-            }}
-        >
-            <div style={{
-                background: 'white', borderRadius: 16, width: '100%', maxWidth: 800,
-                maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-                boxShadow: '0 24px 60px rgba(0,0,0,0.2)', overflow: 'hidden',
-            }}>
-                <div style={{
-                    padding: '16px 20px', borderBottom: '1px solid #e5e7eb',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <i className="fas fa-file-pdf" style={{ color: '#ef4444', fontSize: 18 }}></i>
-                        <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>{doc.title}</h3>
-                    </div>
-                    <button onClick={onClose} style={{
-                        background: '#f3f4f6', border: 'none', borderRadius: 8,
-                        width: 32, height: 32, cursor: 'pointer', fontSize: 14, color: '#6b7280',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                        <i className="fas fa-times"></i>
-                    </button>
-                </div>
-                <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-                    {doc.content ? (
-                        <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-                            {doc.content}
-                        </div>
-                    ) : (
-                        <div style={{ textAlign: 'center', padding: 48, color: '#9ca3af' }}>
-                            <i className="fas fa-file-pdf" style={{ fontSize: 48, marginBottom: 16, color: '#e5e7eb' }}></i>
-                            <p>Contenu non disponible en lecture.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ── Video Card for InsamTechs videos ──
-function ITVideoCard({ video, idx, onPlay }) {
-    const [hovered, setHovered] = useState(false);
-    const gradient = GRADIENTS[(idx + 2) % GRADIENTS.length];
-    const accentColor = ACCENT_COLORS[(idx + 2) % ACCENT_COLORS.length];
-
-    return (
-        <div
-            onClick={() => onPlay(video)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                background: 'white', borderRadius: 12, border: '1px solid #e8e8e8',
-                overflow: 'hidden', cursor: 'pointer',
-                display: 'flex', flexDirection: 'column',
-                boxShadow: hovered ? '0 12px 32px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
-                transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-                transition: 'all .22s ease',
-            }}
-        >
-            <div style={{
-                height: 120, background: gradient, position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-            }}>
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 40%)',
-                }}></div>
-                <div style={{
-                    width: 44, height: 44, borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.22)', backdropFilter: 'blur(4px)',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'transform .22s',
-                    transform: hovered ? 'scale(1.12)' : 'scale(1)',
-                }}>
-                    <i className="fas fa-play" style={{ color: 'white', fontSize: 16, marginLeft: 2 }}></i>
-                </div>
-                <div style={{ position: 'absolute', top: 8, left: 8 }}>
-                    <span style={{
-                        background: accentColor, color: 'white',
-                        fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 50,
-                    }}>Video</span>
-                </div>
-            </div>
-            <div style={{ padding: '12px 14px 0' }}>
-                <h4 style={{
-                    fontSize: 14, fontWeight: 700, color: NAVY, margin: '0 0 6px', lineHeight: 1.35,
-                    textTransform: 'capitalize',
-                    overflow: 'hidden', display: '-webkit-box',
-                    WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                }}>
-                    {video.intitule}
-                </h4>
-            </div>
-            <div style={{ height: 1, background: '#f3f4f6', margin: '8px 14px 0' }}></div>
-            <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '8px 14px 12px', marginTop: 'auto',
-            }}>
-                <span style={{ fontSize: 11, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <i className="fas fa-play-circle" style={{ color: accentColor, fontSize: 10 }}></i>
-                    Lire la video
-                </span>
-            </div>
-        </div>
-    );
-}
-
-// ── Chapitre Card (standalone, for grid display) ──
-function ChapitreGridCard({ chapitre, idx, onClick }) {
-    const [hovered, setHovered] = useState(false);
-    const gradient = GRADIENTS[idx % GRADIENTS.length];
-    const accentColor = ACCENT_COLORS[idx % ACCENT_COLORS.length];
-    const videoCount = chapitre.videos?.length || 0;
-
-    return (
-        <div
-            onClick={() => onClick(chapitre, idx)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                background: 'white', borderRadius: 12, border: '1px solid #e8e8e8',
-                overflow: 'hidden', cursor: 'pointer',
-                display: 'flex', flexDirection: 'column',
-                boxShadow: hovered ? '0 12px 32px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
-                transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-                transition: 'all .22s ease',
-            }}
-        >
-            <div style={{
-                height: 130, background: gradient, position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-            }}>
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 40%)',
-                }}></div>
-                <div style={{
-                    width: 52, height: 52, borderRadius: 14,
-                    background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)',
-                    border: '1px solid rgba(255,255,255,0.25)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 20, color: 'white', fontWeight: 800,
-                    transition: 'transform .22s',
-                    transform: hovered ? 'scale(1.1)' : 'scale(1)',
-                }}>
-                    {idx + 1}
-                </div>
-                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6 }}>
-                    <span style={{
-                        background: accentColor, color: 'white',
-                        fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 50,
-                    }}>Chapitre</span>
-                    {videoCount > 0 && (
-                        <span style={{
-                            background: 'rgba(255,255,255,0.92)', color: NAVY,
-                            fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 50,
-                            display: 'flex', alignItems: 'center', gap: 4,
-                        }}>
-                            <i className="fas fa-play-circle" style={{ color: accentColor, fontSize: 9 }}></i>
-                            {videoCount}
-                        </span>
-                    )}
-                </div>
-            </div>
-            <div style={{ padding: '14px 16px 0' }}>
-                <h3 style={{
-                    fontSize: 15, fontWeight: 700, color: NAVY,
-                    margin: '0 0 6px', lineHeight: 1.35, textTransform: 'capitalize',
-                    overflow: 'hidden', display: '-webkit-box',
-                    WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                }}>
-                    {chapitre.intitule}
-                </h3>
-                <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px', minHeight: 20 }}>
-                    {videoCount} video{videoCount > 1 ? 's' : ''} disponible{videoCount > 1 ? 's' : ''}
-                </p>
-            </div>
-            <div style={{ height: 1, background: '#f3f4f6', margin: '0 16px' }}></div>
-            <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '10px 16px 14px', marginTop: 'auto',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{
-                        width: 26, height: 26, borderRadius: '50%',
-                        background: gradient,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10, color: 'white', fontWeight: 800, flexShrink: 0,
-                    }}>
-                        {idx + 1}
-                    </div>
-                    <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>Chapitre {idx + 1}</span>
-                </div>
-                <span style={{ fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <i className="fas fa-video" style={{ fontSize: 10, color: accentColor }}></i>
-                    {videoCount} vid.
-                </span>
-            </div>
-        </div>
-    );
-}
-
-// ── Breadcrumb navigation for formation detail ──
-function DetailBreadcrumb({ formationName, chapitreName, onBackToFormations, onBackToChapitres }) {
+// ── Exam Card ──
+function ExamCard({ exam, onCorrect, onDownload }) {
+    const { t } = useLang();
     return (
         <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20,
-            fontSize: 13, color: '#9ca3af', flexWrap: 'wrap',
-        }}>
-            <button onClick={onBackToFormations} style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: TEAL, fontWeight: 600, fontSize: 13, padding: 0,
-                display: 'flex', alignItems: 'center', gap: 5,
-            }}>
-                <i className="fas fa-arrow-left" style={{ fontSize: 11 }}></i>
-                Formations
-            </button>
-            <i className="fas fa-chevron-right" style={{ fontSize: 9, color: '#d1d5db' }}></i>
-            {chapitreName ? (
-                <>
-                    <button onClick={onBackToChapitres} style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: TEAL, fontWeight: 600, fontSize: 13, padding: 0,
+            background: 'white', borderRadius: 14, border: '1px solid #f0f0f0',
+            overflow: 'hidden', transition: 'all .2s',
+        }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(91,188,180,0.12)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
+        >
+            <div style={{ height: 4, background: `linear-gradient(90deg, ${TEAL}, ${NAVY})` }} />
+            <div style={{ padding: '16px 18px' }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {exam.annee && <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f3f4f6', color: '#6b7280' }}>{exam.annee}</span>}
+                    {exam.niveau && <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#eff6ff', color: '#3b82f6' }}>{exam.niveau}</span>}
+                    {exam.source === 'admin' && <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#e8f8f5', color: TEAL }}>{t('library.official')}</span>}
+                </div>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: NAVY, margin: '0 0 6px', lineHeight: 1.4 }}>{exam.title}</h3>
+                {exam.matiere && <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}><i className="fas fa-book" style={{ marginRight: 6, color: '#9ca3af' }}></i>{exam.matiere}</div>}
+                {exam.filiere && <div style={{ fontSize: 12, color: '#6b7280' }}><i className="fas fa-graduation-cap" style={{ marginRight: 6, color: '#9ca3af' }}></i>{exam.filiere}</div>}
+            </div>
+            <div style={{ padding: '10px 18px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: 8 }}>
+                {onDownload && (
+                    <button onClick={() => onDownload(exam)} style={{
+                        flex: 1, padding: '8px', borderRadius: 8, border: 'none',
+                        background: TEAL, color: 'white', fontSize: 12, fontWeight: 600,
+                        cursor: 'pointer', fontFamily: 'inherit',
                     }}>
-                        {formationName}
+                        <i className="fas fa-download" style={{ marginRight: 5 }}></i>{t('library.download')}
                     </button>
-                    <i className="fas fa-chevron-right" style={{ fontSize: 9, color: '#d1d5db' }}></i>
-                    <span style={{ color: NAVY, fontWeight: 600, textTransform: 'capitalize' }}>{chapitreName}</span>
-                </>
-            ) : (
-                <span style={{ color: NAVY, fontWeight: 600, textTransform: 'capitalize' }}>{formationName}</span>
+                )}
+                <button onClick={() => onCorrect(exam)} style={{
+                    flex: 1, padding: '8px', borderRadius: 8, border: `1.5px solid ${TEAL}`,
+                    background: 'white', color: TEAL, fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                    <i className="fas fa-check-double" style={{ marginRight: 5 }}></i>{t('library.ai_correction')}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ── Modal ──
+function Modal({ title, children, onClose, wide }) {
+    return (
+        <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+            <div style={{
+                background: 'white', borderRadius: 20, width: '100%', maxWidth: wide ? 800 : 580,
+                boxShadow: '0 24px 60px rgba(0,0,0,0.15)', overflow: 'hidden',
+            }}>
+                <div style={{
+                    background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                    padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                    <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'white' }}>{title}</h2>
+                    <button onClick={onClose} style={{
+                        background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8,
+                        color: 'white', width: 30, height: 30, cursor: 'pointer', fontSize: 14,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}><i className="fas fa-times"></i></button>
+                </div>
+                <div className="lib-modal-body" style={{ padding: 24 }}>
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Input style helper ──
+const inputStyle = {
+    width: '100%', padding: '10px 14px', borderRadius: 10,
+    border: '1.5px solid #e5e7eb', fontSize: 14, color: '#1e293b',
+    outline: 'none', fontFamily: 'inherit', background: 'white', boxSizing: 'border-box',
+};
+
+const labelStyle = { fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 };
+
+const NIVEAUX = ['BTS 1', 'BTS 2', 'Licence 1', 'Licence 2', 'Licence 3', 'Master 1', 'Master 2', 'DUT'];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+export default function Library() {
+    const { user } = useAuth();
+    const { t } = useLang();
+    const [tab, setTab] = useState('sujets');
+    const [exams, setExams] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [filterNiveau, setFilterNiveau] = useState('');
+    const [filterFiliere, setFilterFiliere] = useState('');
+
+    // Modal states
+    const [correctionModal, setCorrectionModal] = useState(null); // { exam, correction, loading }
+    const [generateResult, setGenerateResult] = useState(null);
+    const [generating, setGenerating] = useState(false);
+
+    useEffect(() => {
+        Promise.all([
+            api.get('/api/exams').catch(() => ({ data: { exams: [] } })),
+            api.get('/api/public/categories').catch(() => ({ data: { data: [] } })),
+        ]).then(([exRes, catRes]) => {
+            setExams(exRes.data?.exams || []);
+            setCategories(catRes.data?.data || []);
+        }).finally(() => setLoading(false));
+    }, []);
+
+    const refreshExams = () => {
+        api.get('/api/exams').then(r => setExams(r.data?.exams || [])).catch(() => {});
+    };
+
+    const filtered = exams.filter(e => {
+        if (search && !e.title?.toLowerCase().includes(search.toLowerCase()) && !e.matiere?.toLowerCase().includes(search.toLowerCase())) return false;
+        if (filterNiveau && e.niveau !== filterNiveau) return false;
+        if (filterFiliere && !e.filiere?.toLowerCase().includes(filterFiliere.toLowerCase())) return false;
+        return true;
+    });
+
+    const handleDownload = async (exam) => {
+        try {
+            const r = await api.get(`/api/exams/${exam.id}/download`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([r.data]));
+            const a = document.createElement('a');
+            a.href = url; a.download = exam.file_name || `${exam.title}.pdf`;
+            document.body.appendChild(a); a.click(); a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch { toast.error('Erreur lors du telechargement.'); }
+    };
+
+    const handleCorrect = async (exam) => {
+        setCorrectionModal({ exam, correction: null, loading: true });
+        try {
+            const r = await api.get(`/api/exams/${exam.id}/ai-correction`);
+            setCorrectionModal({ exam, correction: r.data.correction, loading: false });
+        } catch {
+            setCorrectionModal({ exam, correction: 'Erreur lors de la generation de la correction.', loading: false });
+        }
+    };
+
+    const filiereOptions = [...new Set(exams.map(e => e.filiere).filter(Boolean))];
+
+    return (
+        <div style={{ background: '#F8FAFB', minHeight: '100vh' }}>
+            <style>{libCSS}</style>
+
+            {/* ── Header ── */}
+            <div style={{ background: `linear-gradient(165deg, #e6faf8 0%, #f0fdfa 40%, white 100%)`, padding: '42px 0 0', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={W}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: TEAL, letterSpacing: 1, textTransform: 'uppercase' }}>
+                        <i className="fas fa-book-open" style={{ marginRight: 6 }}></i>INSAM-IA
+                    </span>
+                    <h1 style={{ fontSize: 28, fontWeight: 800, color: NAVY, margin: '8px 0 10px' }}>
+                        {t('library.title')}
+                    </h1>
+                    <p style={{ color: '#6b7280', fontSize: 14, maxWidth: 600, margin: '0 0 24px' }}>
+                        {t('library.subtitle')}
+                    </p>
+
+                    {/* Tabs */}
+                    <div className="lib-tabs">
+                        {TAB_KEYS.map(tb => (
+                            <button key={tb.key} onClick={() => setTab(tb.key)} style={{
+                                padding: '12px 22px', border: 'none', borderBottom: tab === tb.key ? `3px solid ${TEAL}` : '3px solid transparent',
+                                background: 'transparent', color: tab === tb.key ? TEAL : '#6b7280',
+                                fontWeight: tab === tb.key ? 700 : 500, fontSize: 13, cursor: 'pointer',
+                                fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7,
+                                transition: 'all .15s', whiteSpace: 'nowrap',
+                            }}>
+                                <i className={tb.icon}></i>{t(tb.tKey)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div style={{ ...W, padding: '28px 24px 60px' }}>
+
+                {/* ═══════════════════════════════════════
+                    TAB 1: ANCIENS SUJETS BTS
+                ═══════════════════════════════════════ */}
+                {tab === 'sujets' && (
+                    <>
+                        {/* Filters */}
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+                            <div style={{ position: 'relative', flex: '1 1 220px' }}>
+                                <i className="fas fa-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 13 }}></i>
+                                <input value={search} onChange={e => setSearch(e.target.value)}
+                                    placeholder={t('library.search_subject')}
+                                    style={{ ...inputStyle, paddingLeft: 36 }}
+                                />
+                            </div>
+                            <select value={filterNiveau} onChange={e => setFilterNiveau(e.target.value)}
+                                style={{ ...inputStyle, width: 'auto', minWidth: 140, cursor: 'pointer' }}>
+                                <option value="">{t('library.all_levels')}</option>
+                                {NIVEAUX.map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                            <select value={filterFiliere} onChange={e => setFilterFiliere(e.target.value)}
+                                style={{ ...inputStyle, width: 'auto', minWidth: 160, cursor: 'pointer' }}>
+                                <option value="">{t('library.all_fields')}</option>
+                                {filiereOptions.map(f => <option key={f} value={f}>{f}</option>)}
+                            </select>
+                        </div>
+
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
+                                <i className="fas fa-spinner fa-spin" style={{ fontSize: 28, marginBottom: 12 }}></i>
+                                <p>{t('common.loading')}</p>
+                            </div>
+                        ) : filtered.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 80, color: '#9ca3af' }}>
+                                <i className="fas fa-file-alt" style={{ fontSize: 48, marginBottom: 16, color: '#e5e7eb' }}></i>
+                                <p style={{ fontSize: 16, fontWeight: 600, color: '#6b7280' }}>{t('library.no_subject')}</p>
+                                <p style={{ fontSize: 13 }}>{t('library.submit_first')}</p>
+                                <button onClick={() => setTab('enrich')} style={{
+                                    marginTop: 16, padding: '10px 24px', borderRadius: 10,
+                                    background: TEAL, color: 'white', border: 'none',
+                                    fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                                }}>
+                                    <i className="fas fa-plus" style={{ marginRight: 6 }}></i>{t('library.submit_subject')}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="lib-grid3">
+                                {filtered.map(exam => (
+                                    <ExamCard key={exam.id} exam={exam} onCorrect={handleCorrect} onDownload={handleDownload} />
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* ═══════════════════════════════════════
+                    TAB 2: GENERER DES EPREUVES
+                ═══════════════════════════════════════ */}
+                {tab === 'generate' && (
+                    <GenerateTab
+                        categories={categories}
+                        generating={generating}
+                        setGenerating={setGenerating}
+                        generateResult={generateResult}
+                        setGenerateResult={setGenerateResult}
+                    />
+                )}
+
+                {/* ═══════════════════════════════════════
+                    TAB 3: ENRICHIR LA BANQUE
+                ═══════════════════════════════════════ */}
+                {tab === 'enrich' && (
+                    <EnrichTab categories={categories} onSuccess={() => { refreshExams(); setTab('sujets'); }} />
+                )}
+
+                {/* ═══════════════════════════════════════
+                    TAB 4: OBTENIR UNE CORRECTION
+                ═══════════════════════════════════════ */}
+                {tab === 'correct' && (
+                    <CorrectTab categories={categories} />
+                )}
+
+
+            </div>
+
+            {/* ── Correction Modal ── */}
+            {correctionModal && (
+                <Modal title={`Correction: ${correctionModal.exam.title}`} onClose={() => setCorrectionModal(null)} wide>
+                    {correctionModal.loading ? (
+                        <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>
+                            <i className="fas fa-spinner fa-spin" style={{ fontSize: 28, marginBottom: 12, color: TEAL }}></i>
+                            <p style={{ fontSize: 14 }}>{t('library.correction_loading')}</p>
+                            <p style={{ fontSize: 12, color: '#b0b0b0' }}>{t('library.correction_wait')}</p>
+                        </div>
+                    ) : (
+                        <>
+                            <Markdown text={correctionModal.correction} />
+                            {/* TTS button */}
+                            <div style={{ marginTop: 20, borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+                                <SpeakButton text={correctionModal.correction} />
+                            </div>
+                        </>
+                    )}
+                </Modal>
             )}
         </div>
     );
 }
 
-// ── Formation Detail Panel: 3-level card navigation ──
-function FormationDetail({ formation, formationIdx, accentColor, onPlayVideo, onClose }) {
-    const [selectedChapitre, setSelectedChapitre] = useState(null);
-    const [selectedChapitreIdx, setSelectedChapitreIdx] = useState(0);
-    const totalVideos = (formation.chapitres || []).reduce((t, ch) => t + (ch.videos?.length || 0), 0);
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB: GENERER DES EPREUVES
+// ══════════════════════════════════════════════════════════════════════════════
+function GenerateTab({ categories, generating, setGenerating, generateResult, setGenerateResult }) {
+    const { t } = useLang();
+    const [form, setForm] = useState({ matiere: '', filiere: '', niveau: '' });
+    const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-    const handleChapitreClick = (ch, idx) => {
-        setSelectedChapitre(ch);
-        setSelectedChapitreIdx(idx);
-        window.scrollTo({ top: 300, behavior: 'smooth' });
+    const handleGenerate = async () => {
+        if (!form.matiere.trim()) { toast.error('Veuillez entrer une matiere.'); return; }
+        setGenerating(true);
+        setGenerateResult(null);
+        try {
+            const r = await api.post('/api/exams/generate-exercises', form);
+            setGenerateResult(r.data.exercise);
+        } catch {
+            toast.error('Erreur lors de la generation.');
+        } finally {
+            setGenerating(false);
+        }
     };
 
-    // Level 3: Videos of a chapitre
-    if (selectedChapitre) {
-        const chapAccent = ACCENT_COLORS[selectedChapitreIdx % ACCENT_COLORS.length];
-        const chapGradient = GRADIENTS[selectedChapitreIdx % GRADIENTS.length];
-        return (
-            <div style={{ marginBottom: 32 }}>
-                <DetailBreadcrumb
-                    formationName={formation.intitule}
-                    chapitreName={selectedChapitre.intitule}
-                    onBackToFormations={onClose}
-                    onBackToChapitres={() => setSelectedChapitre(null)}
-                />
-                {/* Chapitre header */}
-                <div style={{
-                    background: chapGradient, borderRadius: 16, padding: '24px 28px', marginBottom: 24,
-                    display: 'flex', alignItems: 'center', gap: 16,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-                    position: 'relative', overflow: 'hidden',
-                }}>
-                    <div style={{
-                        position: 'absolute', inset: 0,
-                        background: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%)',
-                    }}></div>
-                    <div style={{
-                        width: 56, height: 56, borderRadius: 14, flexShrink: 0,
-                        background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)',
-                        border: '1px solid rgba(255,255,255,0.25)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 22, color: 'white', fontWeight: 800,
-                        position: 'relative', zIndex: 1,
-                    }}>
-                        {selectedChapitreIdx + 1}
+    return (
+        <div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 28, border: '1px solid #f0f0f0', marginBottom: 24 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 16 }}>
+                    <i className="fas fa-magic" style={{ color: TEAL, marginRight: 8 }}></i>
+                    {t('library.gen_title')}
+                </h3>
+                <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
+                    {t('library.gen_desc')}
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
+                    <div>
+                        <label style={labelStyle}>{t('library.subject')} *</label>
+                        <input value={form.matiere} onChange={e => set('matiere', e.target.value)}
+                            placeholder="Ex: Comptabilite Generale" style={inputStyle} />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
-                        <h3 style={{
-                            fontSize: 20, fontWeight: 800, color: 'white', margin: 0,
-                            textTransform: 'capitalize', lineHeight: 1.3,
-                        }}>
-                            {selectedChapitre.intitule}
+                    <div>
+                        <label style={labelStyle}>{t('library.field')}</label>
+                        <input value={form.filiere} onChange={e => set('filiere', e.target.value)}
+                            placeholder="Ex: Comptabilite & Gestion (Specialite)" style={inputStyle} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>{t('library.level')}</label>
+                        <select value={form.niveau} onChange={e => set('niveau', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                            <option value="">{t('library.choose')}</option>
+                            {NIVEAUX.map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <button onClick={handleGenerate} disabled={generating} style={{
+                    padding: '12px 28px', borderRadius: 10, border: 'none',
+                    background: generating ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                    color: 'white', fontWeight: 700, fontSize: 14, cursor: generating ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit', boxShadow: generating ? 'none' : '0 4px 12px rgba(91,188,180,0.35)',
+                }}>
+                    {generating ? (
+                        <><i className="fas fa-spinner fa-spin" style={{ marginRight: 8 }}></i>{t('library.generating')}</>
+                    ) : (
+                        <><i className="fas fa-magic" style={{ marginRight: 8 }}></i>{t('library.generate_btn')}</>
+                    )}
+                </button>
+            </div>
+
+            {generateResult && (
+                <div style={{ background: 'white', borderRadius: 16, padding: 28, border: '1px solid #f0f0f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>
+                            <i className="fas fa-file-alt" style={{ color: TEAL, marginRight: 8 }}></i>
+                            {t('library.generated')}
                         </h3>
-                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: '6px 0 0' }}>
-                            <i className="fas fa-play" style={{ marginRight: 4 }}></i>
-                            {selectedChapitre.videos?.length || 0} videos disponibles
-                        </p>
-                    </div>
-                    <button onClick={() => setSelectedChapitre(null)} style={{
-                        background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 10,
-                        width: 38, height: 38, cursor: 'pointer', fontSize: 15, color: 'white',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, position: 'relative', zIndex: 1,
-                    }}>
-                        <i className="fas fa-arrow-left"></i>
-                    </button>
-                </div>
-                {/* Videos grid */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                    gap: 20,
-                }}>
-                    {selectedChapitre.videos?.map((vid, vi) => (
-                        <ITVideoCard key={vi} video={vid} idx={vi + selectedChapitreIdx} onPlay={onPlayVideo} />
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
-    // Level 2: Chapitres of the formation
-    return (
-        <div style={{ marginBottom: 32 }}>
-            <DetailBreadcrumb
-                formationName={formation.intitule}
-                chapitreName={null}
-                onBackToFormations={onClose}
-                onBackToChapitres={() => {}}
-            />
-            {/* Formation header */}
-            <div style={{
-                background: `linear-gradient(135deg, ${NAVY}, #243758)`,
-                borderRadius: 16, padding: '24px 28px', marginBottom: 24,
-                display: 'flex', alignItems: 'center', gap: 16,
-                boxShadow: '0 8px 32px rgba(27,42,74,0.3)',
-                position: 'relative', overflow: 'hidden',
-            }}>
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'radial-gradient(circle at 80% 20%, rgba(91,188,180,0.15) 0%, transparent 50%)',
-                }}></div>
-                {formation.img ? (
-                    <img src={formation.img} alt="" style={{
-                        width: 64, height: 64, borderRadius: 14, objectFit: 'cover', flexShrink: 0,
-                        border: '2px solid rgba(255,255,255,0.2)', position: 'relative', zIndex: 1,
-                    }} onError={e => { e.target.style.display = 'none'; }} />
-                ) : (
-                    <div style={{
-                        width: 64, height: 64, borderRadius: 14, flexShrink: 0,
-                        background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 24, color: TEAL, position: 'relative', zIndex: 1,
-                    }}>
-                        <i className="fas fa-book-open"></i>
-                    </div>
-                )}
-                <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
-                    <h3 style={{
-                        fontSize: 20, fontWeight: 800, color: 'white', margin: 0,
-                        textTransform: 'capitalize', lineHeight: 1.3,
-                    }}>
-                        {formation.intitule}
-                    </h3>
-                    <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <i className="fas fa-folder"></i> {formation.chapitres?.length || 0} chapitres
-                        </span>
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <i className="fas fa-play"></i> {totalVideos} videos
-                        </span>
-                    </div>
-                </div>
-                <button onClick={onClose} style={{
-                    background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10,
-                    width: 38, height: 38, cursor: 'pointer', fontSize: 15, color: 'white',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, position: 'relative', zIndex: 1,
-                }}>
-                    <i className="fas fa-arrow-left"></i>
-                </button>
-            </div>
-            {/* Chapitres grid */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                gap: 20,
-            }}>
-                {formation.chapitres?.map((ch, ci) => (
-                    <ChapitreGridCard
-                        key={ci}
-                        chapitre={ch}
-                        idx={ci}
-                        onClick={handleChapitreClick}
-                    />
-                ))}
-            </div>
-        </div>
-    );
-}
-
-// ── Formation Card (TOTC gradient style) ──
-function FormationCard({ formation, idx, onClick }) {
-    const [hovered, setHovered] = useState(false);
-    const gradient = GRADIENTS[idx % GRADIENTS.length];
-    const accentColor = ACCENT_COLORS[idx % ACCENT_COLORS.length];
-    const totalVideos = (formation.chapitres || []).reduce((t, ch) => t + (ch.videos?.length || 0), 0);
-    const totalChapitres = formation.chapitres?.length || 0;
-
-    return (
-        <div
-            onClick={() => onClick(formation, idx)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                background: 'white',
-                borderRadius: 12,
-                border: '1px solid #e8e8e8',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: hovered
-                    ? '0 12px 32px rgba(0,0,0,0.12)'
-                    : '0 2px 8px rgba(0,0,0,0.04)',
-                transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-                transition: 'all .22s ease',
-                cursor: 'pointer',
-            }}
-        >
-            {/* Thumbnail area */}
-            <div style={{
-                height: 150,
-                background: gradient,
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-            }}>
-                {/* Background pattern */}
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 40%)',
-                }}></div>
-
-                {/* Formation image overlay or icon */}
-                {formation.img ? (
-                    <>
-                        <img src={formation.img} alt="" style={{
-                            position: 'absolute', inset: 0, width: '100%', height: '100%',
-                            objectFit: 'cover', opacity: 0.3,
-                        }} onError={e => { e.target.style.display = 'none'; }} />
-                        <div style={{
-                            width: 52, height: 52, borderRadius: 14,
-                            background: 'rgba(255,255,255,0.18)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 22, color: 'white',
-                            backdropFilter: 'blur(4px)',
-                            border: '1px solid rgba(255,255,255,0.25)',
-                            transition: 'transform .22s',
-                            transform: hovered ? 'scale(1.1)' : 'scale(1)',
-                            position: 'relative', zIndex: 1,
-                        }}>
-                            <i className="fas fa-play"></i>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <SpeakButton text={generateResult} />
+                            <button onClick={() => {
+                                navigator.clipboard.writeText(generateResult);
+                                toast.success('Copie dans le presse-papiers !');
+                            }} style={{
+                                padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${NAVY}`,
+                                background: 'white', color: NAVY, fontSize: 12, fontWeight: 600,
+                                cursor: 'pointer', fontFamily: 'inherit',
+                            }}>
+                                <i className="fas fa-copy" style={{ marginRight: 5 }}></i>{t('library.copy')}
+                            </button>
                         </div>
-                    </>
-                ) : (
-                    <div style={{
-                        width: 52, height: 52, borderRadius: 14,
-                        background: 'rgba(255,255,255,0.18)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 22, color: 'white',
-                        backdropFilter: 'blur(4px)',
-                        border: '1px solid rgba(255,255,255,0.25)',
-                        transition: 'transform .22s',
-                        transform: hovered ? 'scale(1.1)' : 'scale(1)',
-                    }}>
-                        <i className="fas fa-book-open"></i>
                     </div>
-                )}
-
-                {/* Top-left tags */}
-                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6 }}>
-                    <span style={{
-                        background: accentColor, color: 'white',
-                        fontSize: 10, fontWeight: 700,
-                        padding: '3px 9px', borderRadius: 50,
-                        letterSpacing: 0.3,
-                    }}>
-                        Formation
-                    </span>
-                    {totalVideos > 0 && (
-                        <span style={{
-                            background: 'rgba(255,255,255,0.92)', color: NAVY,
-                            fontSize: 10, fontWeight: 700,
-                            padding: '3px 9px', borderRadius: 50,
-                            display: 'flex', alignItems: 'center', gap: 4,
-                        }}>
-                            <i className="fas fa-play-circle" style={{ color: accentColor, fontSize: 9 }}></i>
-                            {totalVideos}
-                        </span>
-                    )}
+                    <Markdown text={generateResult} />
                 </div>
-            </div>
-
-            {/* Card body */}
-            <div style={{ padding: '14px 16px 0' }}>
-                <h3 style={{
-                    fontSize: 15, fontWeight: 700, color: NAVY,
-                    margin: '0 0 6px', lineHeight: 1.35,
-                    textTransform: 'capitalize',
-                    overflow: 'hidden',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                }}>
-                    {formation.intitule}
-                </h3>
-                <p style={{
-                    fontSize: 13, color: '#6b7280', lineHeight: 1.6,
-                    margin: '0 0 14px',
-                    minHeight: 40,
-                }}>
-                    {totalChapitres} chapitre{totalChapitres > 1 ? 's' : ''} &middot; {totalVideos} video{totalVideos > 1 ? 's' : ''} disponible{totalVideos > 1 ? 's' : ''}
-                </p>
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: 1, background: '#f3f4f6', margin: '0 16px' }}></div>
-
-            {/* Bottom row */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '10px 16px 14px',
-                marginTop: 'auto',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{
-                        width: 26, height: 26, borderRadius: '50%',
-                        background: `linear-gradient(135deg, ${TEAL}, ${NAVY})`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10, color: 'white', fontWeight: 800, flexShrink: 0,
-                    }}>
-                        IT
-                    </div>
-                    <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>INSAMTECHS</span>
-                </div>
-                <span style={{
-                    fontSize: 12, color: '#9ca3af',
-                    display: 'flex', alignItems: 'center', gap: 4,
-                }}>
-                    <i className="fas fa-folder" style={{ fontSize: 10, color: accentColor }}></i>
-                    {totalChapitres} chap.
-                </span>
-            </div>
+            )}
         </div>
     );
 }
 
-// ── Document Card ──
-function DocCard({ doc, onRead }) {
-    const [hovered, setHovered] = useState(false);
-    return (
-        <div
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                background: 'white', borderRadius: 14, border: `1.5px solid ${hovered ? TEAL : '#f0f0f0'}`,
-                padding: '20px', display: 'flex', flexDirection: 'column', gap: 10,
-                transition: 'all .2s', transform: hovered ? 'translateY(-2px)' : 'none',
-                boxShadow: hovered ? '0 8px 24px rgba(91,188,180,0.12)' : '0 1px 4px rgba(0,0,0,0.04)',
-            }}
-        >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{
-                    width: 44, height: 44, borderRadius: 10, background: '#fef2f2',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 20, color: '#ef4444', flexShrink: 0,
-                }}>
-                    <i className="fas fa-file-pdf"></i>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.4 }}>{doc.title}</h3>
-                    {doc.category?.name && (
-                        <span style={{ fontSize: 11, color: TEAL, fontWeight: 600 }}>{doc.category.name}</span>
-                    )}
-                </div>
-            </div>
-            <button
-                onClick={() => onRead(doc)}
-                style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    marginTop: 'auto', background: hovered ? TEAL : 'transparent',
-                    color: hovered ? 'white' : TEAL, border: `2px solid ${TEAL}`,
-                    borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 700,
-                    cursor: 'pointer', transition: 'all .2s', fontFamily: 'inherit',
-                }}
-            >
-                <i className="fas fa-book-open"></i> Lire
-            </button>
-        </div>
-    );
-}
-
-// ── Video Card (local) ──
-function VideoCard({ video }) {
-    const [hovered, setHovered] = useState(false);
-    return (
-        <Link
-            to={`/video/${video.id}`}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                background: 'white', borderRadius: 14, border: `1.5px solid ${hovered ? TEAL : '#f0f0f0'}`,
-                overflow: 'hidden', textDecoration: 'none',
-                transition: 'all .2s', transform: hovered ? 'translateY(-2px)' : 'none',
-                boxShadow: hovered ? '0 8px 24px rgba(91,188,180,0.12)' : '0 1px 4px rgba(0,0,0,0.04)',
-            }}
-        >
-            <div style={{
-                height: 120, background: 'linear-gradient(135deg, #5BBCB430 0%, #1B2A4A20 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 36, color: TEAL,
-            }}>
-                <i className="fas fa-play-circle"></i>
-            </div>
-            <div style={{ padding: '14px 16px' }}>
-                {video.category?.name && (
-                    <span style={{
-                        fontSize: 10, background: '#e8f8f5', color: TEAL,
-                        padding: '3px 8px', borderRadius: 4, fontWeight: 700,
-                        display: 'inline-block', marginBottom: 8,
-                    }}>
-                        {video.category.name}
-                    </span>
-                )}
-                <h3 style={{ fontSize: 14, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.4 }}>
-                    {video.title}
-                </h3>
-            </div>
-        </Link>
-    );
-}
-
-// ── Exam Card (gradient style) ──
-function ExamCard({ exam, idx, onDownload, onCorrection }) {
-    const [hovered, setHovered] = useState(false);
-    const gradient = GRADIENTS[(idx + 3) % GRADIENTS.length];
-    const accentColor = ACCENT_COLORS[(idx + 3) % ACCENT_COLORS.length];
-
-    return (
-        <div
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                background: 'white', borderRadius: 12, border: '1px solid #e8e8e8',
-                overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                boxShadow: hovered ? '0 12px 32px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
-                transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-                transition: 'all .22s ease',
-            }}
-        >
-            <div style={{
-                height: 120, background: gradient, position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-            }}>
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 40%)',
-                }}></div>
-                <div style={{
-                    width: 52, height: 52, borderRadius: 14,
-                    background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)',
-                    border: '1px solid rgba(255,255,255,0.25)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 22, color: 'white',
-                    transition: 'transform .22s',
-                    transform: hovered ? 'scale(1.1)' : 'scale(1)',
-                }}>
-                    <i className="fas fa-file-alt"></i>
-                </div>
-                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6 }}>
-                    {exam.annee && (
-                        <span style={{
-                            background: accentColor, color: 'white',
-                            fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 50,
-                        }}>{exam.annee}</span>
-                    )}
-                    {exam.niveau && (
-                        <span style={{
-                            background: 'rgba(255,255,255,0.92)', color: NAVY,
-                            fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 50,
-                        }}>{exam.niveau}</span>
-                    )}
-                </div>
-                {exam.is_corrected && (
-                    <div style={{ position: 'absolute', top: 10, right: 10 }}>
-                        <span style={{
-                            background: '#10B981', color: 'white',
-                            fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50,
-                            display: 'flex', alignItems: 'center', gap: 3,
-                        }}>
-                            <i className="fas fa-check" style={{ fontSize: 8 }}></i> Corrige
-                        </span>
-                    </div>
-                )}
-            </div>
-            <div style={{ padding: '14px 16px 0' }}>
-                <h3 style={{
-                    fontSize: 15, fontWeight: 700, color: NAVY,
-                    margin: '0 0 6px', lineHeight: 1.35,
-                    overflow: 'hidden', display: '-webkit-box',
-                    WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                }}>
-                    {exam.title}
-                </h3>
-                <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 10px' }}>
-                    {exam.matiere || exam.category?.name || 'Epreuve'}
-                </p>
-            </div>
-            <div style={{ height: 1, background: '#f3f4f6', margin: '0 16px' }}></div>
-            <div style={{
-                display: 'flex', gap: 6, padding: '10px 16px 14px', marginTop: 'auto', flexWrap: 'wrap',
-            }}>
-                <button onClick={() => onDownload(exam)} style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    background: 'transparent', color: accentColor, border: `1.5px solid ${accentColor}`,
-                    borderRadius: 8, padding: '8px 8px', fontSize: 11, fontWeight: 700,
-                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-                    minWidth: 70,
-                }}>
-                    <i className="fas fa-download" style={{ fontSize: 10 }}></i> PDF
-                </button>
-                <button onClick={() => onCorrection(exam)} style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    background: hovered ? accentColor : 'transparent',
-                    color: hovered ? 'white' : accentColor,
-                    border: `1.5px solid ${accentColor}`,
-                    borderRadius: 8, padding: '8px 8px', fontSize: 11, fontWeight: 700,
-                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-                    minWidth: 70,
-                }}>
-                    <i className="fas fa-robot" style={{ fontSize: 10 }}></i> Corrige IA
-                </button>
-            </div>
-        </div>
-    );
-}
-
-// ── Matiere Card (for grouping exams) ──
-function MatiereCard({ matiere, exams, idx, onClick }) {
-    const [hovered, setHovered] = useState(false);
-    const gradient = GRADIENTS[idx % GRADIENTS.length];
-    const accentColor = ACCENT_COLORS[idx % ACCENT_COLORS.length];
-
-    return (
-        <div
-            onClick={() => onClick(matiere)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                background: 'white', borderRadius: 12, border: '1px solid #e8e8e8',
-                overflow: 'hidden', cursor: 'pointer',
-                display: 'flex', flexDirection: 'column',
-                boxShadow: hovered ? '0 12px 32px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
-                transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-                transition: 'all .22s ease',
-            }}
-        >
-            <div style={{
-                height: 130, background: gradient, position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-            }}>
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 40%)',
-                }}></div>
-                <div style={{
-                    width: 52, height: 52, borderRadius: 14,
-                    background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)',
-                    border: '1px solid rgba(255,255,255,0.25)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 22, color: 'white',
-                    transition: 'transform .22s',
-                    transform: hovered ? 'scale(1.1)' : 'scale(1)',
-                }}>
-                    <i className="fas fa-file-alt"></i>
-                </div>
-                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6 }}>
-                    <span style={{
-                        background: accentColor, color: 'white',
-                        fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 50,
-                    }}>Matiere</span>
-                    <span style={{
-                        background: 'rgba(255,255,255,0.92)', color: NAVY,
-                        fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 50,
-                        display: 'flex', alignItems: 'center', gap: 4,
-                    }}>
-                        <i className="fas fa-file-alt" style={{ color: accentColor, fontSize: 9 }}></i>
-                        {exams.length}
-                    </span>
-                </div>
-            </div>
-            <div style={{ padding: '14px 16px 0' }}>
-                <h3 style={{
-                    fontSize: 15, fontWeight: 700, color: NAVY,
-                    margin: '0 0 6px', lineHeight: 1.35, textTransform: 'capitalize',
-                    overflow: 'hidden', display: '-webkit-box',
-                    WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                }}>
-                    {matiere}
-                </h3>
-                <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px' }}>
-                    {exams.length} epreuve{exams.length > 1 ? 's' : ''} disponible{exams.length > 1 ? 's' : ''}
-                </p>
-            </div>
-            <div style={{ height: 1, background: '#f3f4f6', margin: '0 16px' }}></div>
-            <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '10px 16px 14px', marginTop: 'auto',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{
-                        width: 26, height: 26, borderRadius: '50%',
-                        background: `linear-gradient(135deg, ${TEAL}, ${NAVY})`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10, color: 'white', fontWeight: 800, flexShrink: 0,
-                    }}>
-                        IA
-                    </div>
-                    <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>INSAM-IA</span>
-                </div>
-                <span style={{ fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <i className="fas fa-file-alt" style={{ fontSize: 10, color: accentColor }}></i>
-                    {exams.length} sujets
-                </span>
-            </div>
-        </div>
-    );
-}
-
-// ── Upload Exam Modal ──
-function UploadExamModal({ categories, onClose, onUploaded }) {
-    const [form, setForm] = useState({ title: '', matiere: '', filiere: '', niveau: '', annee: '', category_id: '' });
-    const [file, setFile] = useState(null);
-    const [uploading, setUploading] = useState(false);
-
-    const niveaux = ['L1', 'L2', 'L3', 'M1', 'M2', 'BTS1', 'BTS2'];
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB: ENRICHIR LA BANQUE
+// ══════════════════════════════════════════════════════════════════════════════
+function EnrichTab({ categories, onSuccess }) {
+    const { t } = useLang();
+    const [form, setForm] = useState({
+        title: '', matiere: '', filiere: '', niveau: '', annee: '', category_id: '', file: null,
+    });
+    const [submitting, setSubmitting] = useState(false);
+    const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!file) return alert('Selectionnez un fichier.');
-        setUploading(true);
-        const fd = new FormData();
-        Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
-        fd.append('file', file);
+        if (!form.title || !form.matiere || !form.filiere || !form.niveau || !form.annee || !form.file) {
+            toast.error('Veuillez remplir tous les champs obligatoires.');
+            return;
+        }
+        setSubmitting(true);
         try {
+            const fd = new FormData();
+            Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
             await api.post('/api/exams/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-            onUploaded();
-            onClose();
-        } catch {
-            alert('Erreur lors de l\'upload.');
+            toast.success('Sujet soumis avec succes !');
+            onSuccess();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Erreur lors de la soumission.');
         } finally {
-            setUploading(false);
+            setSubmitting(false);
         }
     };
 
-    const inputStyle = {
-        width: '100%', padding: '11px 14px', borderRadius: 10, border: '1.5px solid #e5e7eb',
-        fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-    };
+    const ANNEES = Array.from({ length: 12 }, (_, i) => String(2024 - i));
 
     return (
-        <div
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-            style={{
-                position: 'fixed', inset: 0, zIndex: 1000,
-                background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-            }}
-        >
-            <div style={{
-                background: 'white', borderRadius: 16, width: '100%', maxWidth: 520,
-                boxShadow: '0 24px 60px rgba(0,0,0,0.2)', overflow: 'hidden',
-            }}>
-                <div style={{
-                    padding: '18px 24px', background: NAVY,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, color: 'white', margin: 0 }}>
-                        <i className="fas fa-upload" style={{ marginRight: 8, color: TEAL }}></i>
-                        Soumettre une epreuve
-                    </h3>
-                    <button onClick={onClose} style={{
-                        background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8,
-                        width: 32, height: 32, cursor: 'pointer', color: 'white', fontSize: 14,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                        <i className="fas fa-times"></i>
-                    </button>
+        <div style={{ background: 'white', borderRadius: 16, padding: 28, border: '1px solid #f0f0f0', maxWidth: 640 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 6 }}>
+                <i className="fas fa-plus-circle" style={{ color: TEAL, marginRight: 8 }}></i>
+                {t('library.enrich_title')}
+            </h3>
+            <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
+                {t('library.enrich_desc')}
+            </p>
+
+            <form onSubmit={handleSubmit}>
+                <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>{t('library.title_label')} *</label>
+                    <input value={form.title} onChange={e => set('title', e.target.value)}
+                        placeholder="Ex: Examen BTS Comptabilite 2024" style={inputStyle} />
                 </div>
-                <form onSubmit={handleSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <input placeholder="Titre de l'epreuve *" required value={form.title}
-                        onChange={e => setForm({ ...form, title: e.target.value })} style={inputStyle} />
-                    <input placeholder="Matiere *" required value={form.matiere}
-                        onChange={e => setForm({ ...form, matiere: e.target.value })} style={inputStyle} />
-                    <div style={{ display: 'flex', gap: 10 }}>
-                        <select value={form.filiere} onChange={e => setForm({ ...form, filiere: e.target.value })}
-                            required style={{ ...inputStyle, color: form.filiere ? NAVY : '#9ca3af' }}>
-                            <option value="">Filiere *</option>
-                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                        </select>
-                        <select value={form.niveau} onChange={e => setForm({ ...form, niveau: e.target.value })}
-                            required style={{ ...inputStyle, color: form.niveau ? NAVY : '#9ca3af' }}>
-                            <option value="">Niveau *</option>
-                            {niveaux.map(n => <option key={n} value={n}>{n}</option>)}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                    <div>
+                        <label style={labelStyle}>{t('library.subject')} *</label>
+                        <input value={form.matiere} onChange={e => set('matiere', e.target.value)}
+                            placeholder="Ex: Comptabilite Generale" style={inputStyle} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>{t('library.field')} *</label>
+                        <input value={form.filiere} onChange={e => set('filiere', e.target.value)}
+                            placeholder="Ex: Comptabilite & Gestion (Specialite)" style={inputStyle} />
+                    </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                    <div>
+                        <label style={labelStyle}>{t('library.level')} *</label>
+                        <select value={form.niveau} onChange={e => set('niveau', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                            <option value="">{t('library.choose')}</option>
+                            {NIVEAUX.map(n => <option key={n} value={n}>{n}</option>)}
                         </select>
                     </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                        <input placeholder="Annee (ex: 2024) *" required value={form.annee}
-                            onChange={e => setForm({ ...form, annee: e.target.value })} style={inputStyle} />
-                        <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}
-                            style={{ ...inputStyle, color: form.category_id ? NAVY : '#9ca3af' }}>
-                            <option value="">Categorie</option>
+                    <div>
+                        <label style={labelStyle}>{t('library.year')} *</label>
+                        <select value={form.annee} onChange={e => set('annee', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                            <option value="">{t('library.choose')}</option>
+                            {ANNEES.map(a => <option key={a} value={a}>{a}</option>)}
+                        </select>
+                    </div>
+                </div>
+                {categories.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                        <label style={labelStyle}>{t('library.category')}</label>
+                        <select value={form.category_id} onChange={e => set('category_id', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                            <option value="">{t('library.none')}</option>
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
-                    <div style={{
-                        border: '2px dashed #d1d5db', borderRadius: 12, padding: 20,
-                        textAlign: 'center', cursor: 'pointer', background: '#f9fafb',
-                    }} onClick={() => document.getElementById('exam-file-input').click()}>
-                        <i className="fas fa-cloud-upload-alt" style={{ fontSize: 28, color: TEAL, marginBottom: 8 }}></i>
-                        <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
-                            {file ? file.name : 'Cliquez pour selectionner un fichier PDF'}
-                        </p>
-                        <input id="exam-file-input" type="file" accept=".pdf,.doc,.docx" hidden
-                            onChange={e => setFile(e.target.files[0])} />
-                    </div>
-                    <button type="submit" disabled={uploading} style={{
-                        background: TEAL, color: 'white', border: 'none', borderRadius: 10,
-                        padding: '13px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                        fontFamily: 'inherit', opacity: uploading ? 0.6 : 1,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                )}
+                <div style={{ marginBottom: 20 }}>
+                    <label style={labelStyle}>{t('library.file_label')} *</label>
+                    <label style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        gap: 8, padding: '22px', border: `2px dashed ${form.file ? TEAL : '#d1d5db'}`,
+                        borderRadius: 12, cursor: 'pointer', background: form.file ? '#f0fdf9' : '#fafafa',
                     }}>
-                        {uploading ? <><i className="fas fa-spinner fa-spin"></i> Envoi...</> : <><i className="fas fa-upload"></i> Soumettre</>}
-                    </button>
-                </form>
-            </div>
+                        <i className="fas fa-cloud-upload-alt" style={{ fontSize: 28, color: form.file ? TEAL : '#9ca3af' }}></i>
+                        {form.file
+                            ? <span style={{ fontSize: 13, color: TEAL, fontWeight: 600 }}>{form.file.name}</span>
+                            : <span style={{ fontSize: 13, color: '#374151' }}>{t('library.click_choose')}</span>
+                        }
+                        <input type="file" accept=".pdf,.doc,.docx" style={{ display: 'none' }}
+                            onChange={e => set('file', e.target.files?.[0] || null)} />
+                    </label>
+                </div>
+                <button type="submit" disabled={submitting} style={{
+                    padding: '12px 28px', borderRadius: 10, border: 'none',
+                    background: submitting ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                    color: 'white', fontWeight: 700, fontSize: 14, cursor: submitting ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit',
+                }}>
+                    {submitting ? <><i className="fas fa-spinner fa-spin" style={{ marginRight: 8 }}></i>{t('library.sending')}</>
+                        : <><i className="fas fa-paper-plane" style={{ marginRight: 8 }}></i>{t('library.submit_btn')}</>}
+                </button>
+            </form>
         </div>
     );
 }
 
-// ── AI Correction Modal ──
-function CorrectionModal({ exam, onClose }) {
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB: OBTENIR UNE CORRECTION
+// ══════════════════════════════════════════════════════════════════════════════
+function CorrectTab({ categories }) {
+    const { t } = useLang();
+    const [inputMode, setInputMode] = useState('paste'); // 'paste' or 'upload'
+    const [content, setContent] = useState('');
+    const [uploadFile, setUploadFile] = useState(null);
+    const [form, setForm] = useState({ title: '', matiere: '', filiere: '', niveau: '', category_id: '' });
     const [correction, setCorrection] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const fileRef = useRef(null);
+    const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-    useEffect(() => {
-        api.get(`/api/exams/${exam.id}/ai-correction`)
-            .then(r => setCorrection(r.data?.correction || 'Erreur lors de la generation.'))
-            .catch(() => setCorrection('Erreur: impossible de generer le corrige. Verifiez votre connexion.'))
-            .finally(() => setLoading(false));
-    }, [exam.id]);
-
-    return (
-        <div
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-            style={{
-                position: 'fixed', inset: 0, zIndex: 1000,
-                background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(6px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-            }}
-        >
-            <div style={{
-                background: 'white', borderRadius: 16, width: '100%', maxWidth: 800,
-                maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-                boxShadow: '0 24px 60px rgba(0,0,0,0.25)', overflow: 'hidden',
-            }}>
-                <div style={{
-                    padding: '18px 24px', background: NAVY,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                        <i className="fas fa-robot" style={{ color: TEAL, fontSize: 18 }}></i>
-                        <div>
-                            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'white', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                Corrige IA - {exam.title}
-                            </h3>
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>
-                                {exam.matiere} {exam.annee ? `- ${exam.annee}` : ''}
-                            </span>
-                        </div>
-                    </div>
-                    <button onClick={onClose} style={{
-                        background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8,
-                        width: 34, height: 34, cursor: 'pointer', color: 'white', fontSize: 14,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>
-                        <i className="fas fa-times"></i>
-                    </button>
-                </div>
-                <div style={{ flex: 1, overflow: 'auto', padding: 28 }}>
-                    {loading ? (
-                        <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
-                            <i className="fas fa-spinner fa-spin" style={{ fontSize: 32, color: TEAL, marginBottom: 16 }}></i>
-                            <p style={{ fontSize: 15, fontWeight: 600, color: NAVY }}>L'IA genere le corrige...</p>
-                            <p style={{ fontSize: 13 }}>Cela peut prendre quelques secondes.</p>
-                        </div>
-                    ) : (
-                        <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-                            {correction}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ── Main Page ──
-export default function Library() {
-    const [activeTab, setActiveTab] = useState('documents');
-    const [documents, setDocuments] = useState([]);
-    const [videos, setVideos] = useState([]);
-    const [exams, setExams] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [formations, setFormations] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('');
-    const [readingDoc, setReadingDoc] = useState(null);
-    const [playingVideo, setPlayingVideo] = useState(null);
-    const [selectedFormation, setSelectedFormation] = useState(null);
-    const [selectedFormationIdx, setSelectedFormationIdx] = useState(0);
-    const [selectedMatiere, setSelectedMatiere] = useState(null);
-    const [showUploadExam, setShowUploadExam] = useState(false);
-    const [correctingExam, setCorrectingExam] = useState(null);
-
-    useEffect(() => {
-        api.get('/api/public/categories')
-            .then(r => setCategories(r.data?.data || []))
-            .catch(() => {});
-        api.get('/api/my-formations')
-            .then(r => setFormations(r.data?.formations || []))
-            .catch(() => {});
-    }, []);
-
-    useEffect(() => {
+    const handleSubmit = async () => {
+        if (inputMode === 'paste' && !content.trim()) { toast.error('Veuillez coller le contenu de l\'epreuve.'); return; }
+        if (inputMode === 'upload' && !uploadFile) { toast.error('Veuillez charger un fichier (PDF ou image).'); return; }
+        if (!form.matiere.trim()) { toast.error('Veuillez entrer la matiere.'); return; }
         setLoading(true);
-        const params = new URLSearchParams();
-        if (search.trim()) params.append('search', search.trim());
-        if (categoryFilter) params.append('category_id', categoryFilter);
-        const qs = params.toString() ? `?${params.toString()}` : '';
-
-        if (activeTab === 'documents') {
-            api.get(`/api/public/documents${qs}`)
-                .then(r => setDocuments(r.data?.data || []))
-                .catch(() => setDocuments([]))
-                .finally(() => setLoading(false));
-        } else if (activeTab === 'videos') {
-            api.get(`/api/public/videos${qs}`)
-                .then(r => setVideos(r.data?.data || []))
-                .catch(() => setVideos([]))
-                .finally(() => setLoading(false));
-        } else {
-            api.get(`/api/exams${qs}`)
-                .then(r => setExams(r.data?.exams || r.data?.data || []))
-                .catch(() => setExams([]))
-                .finally(() => setLoading(false));
-        }
-    }, [activeTab, search, categoryFilter]);
-
-    const handleDownload = async (exam) => {
+        setCorrection(null);
         try {
-            const response = await api.get(`/api/exams/${exam.id}/download`, { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${exam.title}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
+            let r;
+            if (inputMode === 'upload' && uploadFile) {
+                const fd = new FormData();
+                fd.append('file', uploadFile);
+                fd.append('title', form.title || `Epreuve ${form.matiere} ${new Date().getFullYear()}`);
+                fd.append('matiere', form.matiere);
+                fd.append('filiere', form.filiere || 'General');
+                fd.append('niveau', form.niveau || 'BTS');
+                if (form.category_id) fd.append('category_id', form.category_id);
+                r = await api.post('/api/exams/upload-and-correct', fd, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+            } else {
+                r = await api.post('/api/exams/submit-and-correct', {
+                    title: form.title || `Epreuve ${form.matiere} ${new Date().getFullYear()}`,
+                    matiere: form.matiere,
+                    filiere: form.filiere || 'General',
+                    niveau: form.niveau || 'BTS',
+                    content,
+                    category_id: form.category_id || null,
+                });
+            }
+            setCorrection(r.data.correction);
+            toast.success('Epreuve enregistree et corrigee !');
+            api.post('/api/course-progress', {
+                type: form.niveau?.startsWith('BTS') ? 'bts_exam' : 'ue_course',
+                subject: form.matiere,
+                title: form.title || `Epreuve ${form.matiere}`,
+                score: 0,
+                course_completed: true,
+                quiz_completed: false,
+            }).catch(() => {});
         } catch {
-            alert('Erreur lors du telechargement.');
+            toast.error('Erreur lors de la correction.');
+        } finally {
+            setLoading(false);
         }
     };
-
-    const handleFormationClick = (formation, idx) => {
-        setSelectedFormation(formation);
-        setSelectedFormationIdx(idx);
-        // Scroll to top of detail
-        window.scrollTo({ top: 300, behavior: 'smooth' });
-    };
-
-    // Filter formations by search
-    const filteredFormations = search.trim()
-        ? formations.filter(f =>
-            f.intitule?.toLowerCase().includes(search.toLowerCase()) ||
-            f.chapitres?.some(ch =>
-                ch.intitule?.toLowerCase().includes(search.toLowerCase()) ||
-                ch.videos?.some(v => v.intitule?.toLowerCase().includes(search.toLowerCase()))
-            )
-        )
-        : formations;
-
-    const insamtechsVideoCount = filteredFormations.reduce((total, f) =>
-        total + (f.chapitres || []).reduce((ct, ch) => ct + (ch.videos?.length || 0), 0), 0);
-    const currentItems = activeTab === 'documents' ? documents : activeTab === 'videos' ? videos : exams;
-    const displayCount = activeTab === 'videos' ? videos.length + insamtechsVideoCount : currentItems.length;
-    const hasContent = activeTab === 'videos' ? (videos.length + insamtechsVideoCount) > 0 : activeTab === 'exams' ? true : currentItems.length > 0;
 
     return (
-        <div style={{ background: '#F8FAFB', minHeight: '100vh', paddingBottom: 60 }}>
+        <div>
+            <div style={{ background: 'white', borderRadius: 16, padding: 28, border: '1px solid #f0f0f0', marginBottom: 24 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 6 }}>
+                    <i className="fas fa-check-double" style={{ color: TEAL, marginRight: 8 }}></i>
+                    {t('library.correct_title')}
+                </h3>
+                <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
+                    Collez le contenu d'une epreuve ou chargez un fichier (PDF, image) pour obtenir une correction detaillee par l'IA.
+                </p>
 
-            {/* HERO */}
-            <section style={{
-                background: 'linear-gradient(135deg, #1B2A4A 0%, #243758 60%, #2d4470 100%)',
-                padding: '48px 0 52px',
-            }}>
-                <div style={W}>
-                    <span style={{ color: TEAL, fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>BIBLIOTHEQUE</span>
-                    <h1 style={{ fontSize: 34, fontWeight: 800, color: 'white', margin: '10px 0 8px', lineHeight: 1.2 }}>
-                        Votre <span style={{ color: TEAL }}>Bibliotheque</span> Academique
-                    </h1>
-                    <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 15, maxWidth: 520, marginBottom: 28 }}>
-                        Accedez a tous vos cours PDF, videos TP et epreuves en un seul endroit.
-                    </p>
-
-                    {/* Search */}
-                    <div style={{ display: 'flex', gap: 12, maxWidth: 600, flexWrap: 'wrap' }}>
-                        <div style={{ position: 'relative', flex: '1 1 280px' }}>
-                            <i className="fas fa-search" style={{
-                                position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
-                                color: '#9ca3af', fontSize: 15,
-                            }}></i>
-                            <input
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                placeholder="Rechercher une formation, un chapitre, une video..."
-                                style={{
-                                    width: '100%', padding: '13px 16px 13px 44px',
-                                    borderRadius: 12, border: 'none', fontSize: 14,
-                                    boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
-                                    outline: 'none', boxSizing: 'border-box',
-                                }}
-                            />
-                        </div>
-                        <select
-                            value={categoryFilter}
-                            onChange={e => setCategoryFilter(e.target.value)}
-                            style={{
-                                padding: '13px 16px', borderRadius: 12, border: 'none',
-                                fontSize: 14, background: 'white', cursor: 'pointer',
-                                boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
-                                color: categoryFilter ? NAVY : '#9ca3af', fontWeight: categoryFilter ? 600 : 400,
-                            }}
-                        >
-                            <option value="">Toutes les categories</option>
-                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
-                </div>
-            </section>
-
-            <div style={{ ...W, marginTop: -20 }}>
-                {/* TABS */}
-                <div style={{
-                    background: 'white', borderRadius: 14, display: 'inline-flex',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 28,
-                }}>
-                    {TABS.map(tab => (
-                        <button
-                            key={tab.key}
-                            onClick={() => { setActiveTab(tab.key); setSelectedFormation(null); setSelectedMatiere(null); }}
-                            style={{
-                                padding: '14px 28px', border: 'none', cursor: 'pointer',
-                                fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                background: activeTab === tab.key ? TEAL : 'white',
-                                color: activeTab === tab.key ? 'white' : '#6b7280',
-                                transition: 'all .2s',
-                            }}
-                        >
-                            <i className={tab.icon}></i>
-                            {tab.label}
+                {/* Mode toggle: paste or upload */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                    {[
+                        { key: 'paste', icon: 'fas fa-paste', label: 'Coller le texte' },
+                        { key: 'upload', icon: 'fas fa-upload', label: 'Charger un fichier' },
+                    ].map(m => (
+                        <button key={m.key} onClick={() => setInputMode(m.key)} style={{
+                            padding: '10px 20px', borderRadius: 10,
+                            border: inputMode === m.key ? `2px solid ${TEAL}` : '1.5px solid #e5e7eb',
+                            background: inputMode === m.key ? '#e8f8f5' : 'white',
+                            color: inputMode === m.key ? TEAL : '#6b7280',
+                            fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                            <i className={m.icon}></i>{m.label}
                         </button>
                     ))}
                 </div>
 
-                {/* Stats bar */}
-                <div style={{
-                    display: 'flex', gap: 16, marginBottom: 24, alignItems: 'center',
-                    flexWrap: 'wrap',
-                }}>
-                    <div style={{
-                        background: 'white', borderRadius: 12, padding: '12px 20px',
-                        border: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 10,
-                    }}>
-                        <div style={{
-                            width: 36, height: 36, borderRadius: 10, background: '#e8f8f5',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: TEAL, fontSize: 16,
-                        }}>
-                            <i className={TABS.find(t => t.key === activeTab)?.icon}></i>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>{displayCount}</div>
-                            <div style={{ fontSize: 11, color: '#9ca3af' }}>{TABS.find(t => t.key === activeTab)?.label}</div>
-                        </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+                    <div>
+                        <label style={labelStyle}>{t('library.title_field')}</label>
+                        <input value={form.title} onChange={e => set('title', e.target.value)}
+                            placeholder="Ex: Examen Reseaux 2024" style={inputStyle} />
                     </div>
-                    {activeTab === 'videos' && filteredFormations.length > 0 && (
-                        <div style={{
-                            background: 'white', borderRadius: 12, padding: '12px 20px',
-                            border: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 10,
-                        }}>
-                            <div style={{
-                                width: 36, height: 36, borderRadius: 10, background: '#f0f4ff',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: NAVY, fontSize: 16,
-                            }}>
-                                <i className="fas fa-book-open"></i>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>{filteredFormations.length}</div>
-                                <div style={{ fontSize: 11, color: '#9ca3af' }}>Formations InsamTechs</div>
-                            </div>
-                        </div>
-                    )}
+                    <div>
+                        <label style={labelStyle}>{t('library.subject')} *</label>
+                        <input value={form.matiere} onChange={e => set('matiere', e.target.value)}
+                            placeholder="Ex: Reseaux Informatiques" style={inputStyle} />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>{t('library.level')}</label>
+                        <select value={form.niveau} onChange={e => set('niveau', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                            <option value="">{t('library.choose')}</option>
+                            {NIVEAUX.map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                    </div>
                 </div>
 
-                {/* Content */}
-                {loading ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} style={{
-                                background: 'white', borderRadius: 12, border: '1px solid #f0f0f0', overflow: 'hidden',
-                            }}>
-                                <div style={{ height: 150, background: '#f3f4f6' }}></div>
-                                <div style={{ padding: '14px 16px 16px' }}>
-                                    <div style={{ height: 14, background: '#f3f4f6', borderRadius: 4, marginBottom: 8, width: '75%' }}></div>
-                                    <div style={{ height: 11, background: '#f9fafb', borderRadius: 4 }}></div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : !hasContent ? (
-                    <div style={{ background: 'white', borderRadius: 16, padding: 60, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
-                        <i className="fas fa-folder-open" style={{ fontSize: 36, marginBottom: 14, color: '#e5e7eb' }}></i>
-                        <p style={{ fontSize: 15, fontWeight: 600, color: NAVY }}>Aucun contenu trouve</p>
-                        <p style={{ fontSize: 13, marginTop: 6 }}>
-                            {search || categoryFilter ? 'Essayez de modifier vos criteres.' : 'Aucun contenu disponible pour le moment.'}
-                        </p>
+                {inputMode === 'paste' ? (
+                    <div style={{ marginBottom: 16 }}>
+                        <label style={labelStyle}>{t('library.content_label')} *</label>
+                        <textarea value={content} onChange={e => setContent(e.target.value)}
+                            placeholder={t('library.content_placeholder')}
+                            rows={10}
+                            style={{ ...inputStyle, resize: 'vertical', minHeight: 180, lineHeight: 1.6, fontSize: 13 }}
+                        />
                     </div>
                 ) : (
-                    <>
-                        {/* PDF grid */}
-                        {activeTab === 'documents' && (
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                                gap: 18,
-                            }}>
-                                {documents.map(doc => (
-                                    <DocCard key={doc.id} doc={doc} onRead={setReadingDoc} />
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Exams tab - grouped by matiere */}
-                        {activeTab === 'exams' && (() => {
-                            // Group exams by matiere
-                            const grouped = {};
-                            exams.forEach(ex => {
-                                const key = ex.matiere || ex.category?.name || 'Autres';
-                                if (!grouped[key]) grouped[key] = [];
-                                grouped[key].push(ex);
-                            });
-                            const matieres = Object.keys(grouped);
-
-                            return (
-                                <>
-                                    {/* Upload + back button */}
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        marginBottom: 20,
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            {selectedMatiere && (
-                                                <button onClick={() => setSelectedMatiere(null)} style={{
-                                                    background: 'none', border: 'none', cursor: 'pointer',
-                                                    color: TEAL, fontWeight: 600, fontSize: 13, padding: 0,
-                                                    display: 'flex', alignItems: 'center', gap: 5,
-                                                }}>
-                                                    <i className="fas fa-arrow-left" style={{ fontSize: 11 }}></i>
-                                                    Toutes les matieres
-                                                </button>
-                                            )}
-                                            {selectedMatiere && (
-                                                <>
-                                                    <i className="fas fa-chevron-right" style={{ fontSize: 9, color: '#d1d5db' }}></i>
-                                                    <span style={{ fontSize: 14, fontWeight: 700, color: NAVY, textTransform: 'capitalize' }}>
-                                                        {selectedMatiere}
-                                                    </span>
-                                                </>
-                                            )}
-                                        </div>
-                                        <button onClick={() => setShowUploadExam(true)} style={{
-                                            display: 'flex', alignItems: 'center', gap: 6,
-                                            background: TEAL, color: 'white', border: 'none',
-                                            borderRadius: 10, padding: '10px 18px', fontSize: 13,
-                                            fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                                        }}>
-                                            <i className="fas fa-upload"></i> Soumettre une epreuve
-                                        </button>
+                    <div style={{ marginBottom: 16 }}>
+                        <label style={labelStyle}>Fichier (PDF, image) *</label>
+                        <div
+                            onClick={() => fileRef.current?.click()}
+                            style={{
+                                border: `2px dashed ${uploadFile ? TEAL : '#d1d5db'}`,
+                                borderRadius: 12, padding: '32px 20px', textAlign: 'center',
+                                background: uploadFile ? '#f0fdf9' : '#f9fafb',
+                                cursor: 'pointer', transition: 'all .2s',
+                            }}
+                        >
+                            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                style={{ display: 'none' }}
+                                onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                            />
+                            {uploadFile ? (
+                                <div>
+                                    <i className="fas fa-file-check" style={{ fontSize: 28, color: TEAL, marginBottom: 8, display: 'block' }}></i>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{uploadFile.name}</div>
+                                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                                        {(uploadFile.size / 1024 / 1024).toFixed(2)} MB - Cliquez pour changer
                                     </div>
-
-                                    {selectedMatiere ? (
-                                        /* Show exams of selected matiere as cards */
-                                        <div style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                                            gap: 20,
-                                        }}>
-                                            {(grouped[selectedMatiere] || []).map((exam, i) => (
-                                                <ExamCard key={exam.id} exam={exam} idx={i} onDownload={handleDownload} onCorrection={setCorrectingExam} />
-                                            ))}
-                                        </div>
-                                    ) : matieres.length > 0 ? (
-                                        /* Show matieres as cards */
-                                        <div style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                                            gap: 20,
-                                        }}>
-                                            {matieres.map((mat, i) => (
-                                                <MatiereCard
-                                                    key={mat}
-                                                    matiere={mat}
-                                                    exams={grouped[mat]}
-                                                    idx={i}
-                                                    onClick={setSelectedMatiere}
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div style={{
-                                            background: 'white', borderRadius: 16, padding: 60,
-                                            textAlign: 'center', border: '1px solid #f0f0f0',
-                                        }}>
-                                            <i className="fas fa-file-alt" style={{ fontSize: 48, color: '#e5e7eb', marginBottom: 16 }}></i>
-                                            <p style={{ fontSize: 16, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>
-                                                Aucune epreuve pour le moment
-                                            </p>
-                                            <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 20px' }}>
-                                                Soyez le premier a partager une epreuve avec la communaute !
-                                            </p>
-                                            <button onClick={() => setShowUploadExam(true)} style={{
-                                                background: TEAL, color: 'white', border: 'none',
-                                                borderRadius: 10, padding: '12px 24px', fontSize: 14,
-                                                fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                                                display: 'inline-flex', alignItems: 'center', gap: 8,
-                                            }}>
-                                                <i className="fas fa-upload"></i> Soumettre une epreuve
-                                            </button>
-                                        </div>
-                                    )}
-                                </>
-                            );
-                        })()}
-
-                        {/* Videos tab */}
-                        {activeTab === 'videos' && (
-                            <>
-                                {/* Local videos grid */}
-                                {videos.length > 0 && (
-                                    <>
-                                        <h2 style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 14 }}>
-                                            <i className="fas fa-video" style={{ color: TEAL, marginRight: 8 }}></i>
-                                            Videos INSAM-IA
-                                        </h2>
-                                        <div style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                                            gap: 18, marginBottom: 32,
-                                        }}>
-                                            {videos.map(v => <VideoCard key={v.id} video={v} />)}
-                                        </div>
-                                    </>
-                                )}
-
-                                {/* InsamTechs formations - card grid */}
-                                {filteredFormations.length > 0 && (
-                                    <>
-                                        <div style={{
-                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                            marginBottom: 20,
-                                        }}>
-                                            <h2 style={{
-                                                fontSize: 18, fontWeight: 800, color: NAVY, margin: 0,
-                                                display: 'flex', alignItems: 'center', gap: 10,
-                                            }}>
-                                                <i className="fas fa-graduation-cap" style={{ color: TEAL }}></i>
-                                                Formations de votre filiere
-                                                <span style={{
-                                                    fontSize: 10, background: TEAL, color: 'white',
-                                                    padding: '3px 10px', borderRadius: 20, fontWeight: 700,
-                                                }}>
-                                                    INSAMTECHS
-                                                </span>
-                                            </h2>
-                                            <span style={{ fontSize: 13, color: '#9ca3af' }}>
-                                                {filteredFormations.length} formation{filteredFormations.length > 1 ? 's' : ''}
-                                            </span>
-                                        </div>
-
-                                        {/* Selected formation detail */}
-                                        {selectedFormation && (
-                                            <FormationDetail
-                                                formation={selectedFormation}
-                                                formationIdx={selectedFormationIdx}
-                                                accentColor={ACCENT_COLORS[selectedFormationIdx % ACCENT_COLORS.length]}
-                                                onPlayVideo={setPlayingVideo}
-                                                onClose={() => setSelectedFormation(null)}
-                                            />
-                                        )}
-
-                                        {/* Formation cards grid */}
-                                        <div style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                                            gap: 20,
-                                        }}>
-                                            {filteredFormations.map((f, i) => (
-                                                <FormationCard
-                                                    key={f.id || i}
-                                                    formation={f}
-                                                    idx={i}
-                                                    onClick={handleFormationClick}
-                                                />
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </>
+                                </div>
+                            ) : (
+                                <div>
+                                    <i className="fas fa-cloud-upload-alt" style={{ fontSize: 28, color: '#9ca3af', marginBottom: 8, display: 'block' }}></i>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>Cliquez pour charger une epreuve</div>
+                                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>PDF, JPG, PNG (max 10 MB)</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )}
+
+                <button onClick={handleSubmit} disabled={loading} style={{
+                    padding: '12px 28px', borderRadius: 10, border: 'none',
+                    background: loading ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                    color: 'white', fontWeight: 700, fontSize: 14, cursor: loading ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit', boxShadow: loading ? 'none' : '0 4px 12px rgba(91,188,180,0.35)',
+                }}>
+                    {loading ? (
+                        <><i className="fas fa-spinner fa-spin" style={{ marginRight: 8 }}></i>{t('library.correcting')}</>
+                    ) : (
+                        <><i className="fas fa-check-double" style={{ marginRight: 8 }}></i>{t('library.correct_btn')}</>
+                    )}
+                </button>
             </div>
 
-            {/* Modals */}
-            {readingDoc && <PdfModal doc={readingDoc} onClose={() => setReadingDoc(null)} />}
-            {playingVideo && <VideoModal video={playingVideo} onClose={() => setPlayingVideo(null)} />}
-            {correctingExam && <CorrectionModal exam={correctingExam} onClose={() => setCorrectingExam(null)} />}
-            {showUploadExam && (
-                <UploadExamModal
-                    categories={categories}
-                    onClose={() => setShowUploadExam(false)}
-                    onUploaded={() => {
-                        // Refresh exams
-                        api.get('/api/exams').then(r => setExams(r.data?.exams || [])).catch(() => {});
-                    }}
-                />
+            {correction && (
+                <div style={{ background: 'white', borderRadius: 16, padding: 28, border: '1px solid #f0f0f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>
+                            <i className="fas fa-check-circle" style={{ color: '#10b981', marginRight: 8 }}></i>
+                            {t('library.correction_detail')}
+                        </h3>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <SpeakButton text={correction} />
+                            <button onClick={() => { navigator.clipboard.writeText(correction); toast.success('Copie !'); }}
+                                style={{
+                                    padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${NAVY}`,
+                                    background: 'white', color: NAVY, fontSize: 12, fontWeight: 600,
+                                    cursor: 'pointer', fontFamily: 'inherit',
+                                }}>
+                                <i className="fas fa-copy" style={{ marginRight: 5 }}></i>{t('library.copy')}
+                            </button>
+                        </div>
+                    </div>
+                    <Markdown text={correction} />
+                </div>
             )}
         </div>
+    );
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SPEAK BUTTON (Text-to-Speech)
+// ══════════════════════════════════════════════════════════════════════════════
+function SpeakButton({ text }) {
+    const { t } = useLang();
+    const [speaking, setSpeaking] = useState(false);
+    const utterRef = useRef(null);
+
+    const toggle = () => {
+        if (speaking) {
+            window.speechSynthesis.cancel();
+            setSpeaking(false);
+            return;
+        }
+        // Strip markdown
+        const clean = (text || '')
+            .replace(/#{1,3}\s/g, '')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/\*(.*?)\*/g, '$1')
+            .replace(/`[^`]+`/g, '')
+            .replace(/[-*]\s/g, '')
+            .replace(/\d+\.\s/g, '');
+
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.lang = 'fr-FR';
+        utter.rate = 0.9;
+        utter.onend = () => setSpeaking(false);
+        utter.onerror = () => setSpeaking(false);
+        utterRef.current = utter;
+        window.speechSynthesis.speak(utter);
+        setSpeaking(true);
+    };
+
+    return (
+        <button onClick={toggle} style={{
+            padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${speaking ? '#ef4444' : TEAL}`,
+            background: speaking ? '#fef2f2' : '#f0fdf9', color: speaking ? '#ef4444' : TEAL,
+            fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 5,
+        }}>
+            <i className={`fas fa-${speaking ? 'stop' : 'volume-up'}`}></i>
+            {speaking ? t('library.stop') : t('library.read')}
+        </button>
     );
 }
