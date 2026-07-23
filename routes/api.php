@@ -35,6 +35,7 @@ Route::prefix('public')->group(function () {
     Route::get('/debouches/{id}', [PublicController::class, 'deboucheShow']);
     Route::get('/roadmap-steps/{id}', [PublicController::class, 'roadmapStepShow']);
     Route::get('/categories/{id}/certifications', [PublicController::class, 'categoryCertifications']);
+    Route::get('/categories/{id}/cours', [PublicController::class, 'categoryCourses']);
     Route::get('/videos', [PublicController::class, 'allVideos']);
     Route::get('/videos/{id}', [PublicController::class, 'videoShow']);
     Route::get('/documents', [PublicController::class, 'documents']);

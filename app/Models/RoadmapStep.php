@@ -16,7 +16,12 @@ class RoadmapStep extends Model
         'skills',
         'icon',
         'color',
+        'ai_details',
         'sort_order',
+    ];
+
+    protected $casts = [
+        'ai_details' => 'array',
     ];
 
     public function category(): BelongsTo

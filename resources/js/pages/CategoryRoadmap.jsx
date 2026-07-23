@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../api';
 
@@ -16,7 +16,7 @@ function levelStyle(level) {
     return LEVEL_COLORS[key];
 }
 
-function StepCard({ step, index, total }) {
+function StepCard({ step, index, total, onClick }) {
     const lvl = levelStyle(step.level);
     const isLast = index === total - 1;
 
@@ -64,7 +64,9 @@ function StepCard({ step, index, total }) {
                 boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                 border: '1px solid #f0f4f8',
                 transition: 'box-shadow .2s',
+                cursor: 'pointer',
             }}
+                onClick={() => onClick && onClick(step)}
                 onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 28px rgba(91,188,180,0.14)'; e.currentTarget.style.borderColor = '#5BBCB4'; }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'; e.currentTarget.style.borderColor = '#f0f4f8'; }}
             >
@@ -146,6 +148,17 @@ function StepCard({ step, index, total }) {
                         ))}
                     </div>
                 )}
+
+                {/* CTA */}
+                <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                        fontSize: 12, fontWeight: 600, color: '#5BBCB4',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                        <i className="fas fa-arrow-right"></i>
+                        Voir les details
+                    </span>
+                </div>
             </div>
         </div>
     );
@@ -153,6 +166,7 @@ function StepCard({ step, index, total }) {
 
 export default function CategoryRoadmap() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const [category, setCategory] = useState(null);
     const [steps, setSteps] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -329,7 +343,7 @@ export default function CategoryRoadmap() {
                             {/* Steps */}
                             <div>
                                 {steps.map((step, i) => (
-                                    <StepCard key={step.id || i} step={step} index={i} total={steps.length} />
+                                    <StepCard key={step.id || i} step={step} index={i} total={steps.length} onClick={(s) => navigate(`/roadmap/${s.id}`)} />
                                 ))}
                             </div>
 

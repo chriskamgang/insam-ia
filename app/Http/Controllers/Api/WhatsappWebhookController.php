@@ -120,14 +120,33 @@ class WhatsappWebhookController extends Controller
         $botName    = Setting::get('whatsapp_bot_name', $siteName);
         $customInfo = Setting::get('whatsapp_custom_info', '');
 
-        // Load knowledge documents
-        $docs = KnowledgeDocument::take(20)->get();
+        // Load ALL knowledge documents with content
+        $docs = KnowledgeDocument::whereNotNull('content')
+            ->where('content', '!=', '')
+            ->orderByDesc('updated_at')
+            ->get();
+
         $docsContext = '';
+        $totalChars = 0;
+        $maxChars = 80000; // ~80k chars for context
+
         if ($docs->isNotEmpty()) {
-            $docsContext = "\n\n--- DOCUMENTS DE REFERENCE ---\n";
+            $docsContext = "\n\n--- BASE DE CONNAISSANCES ---\n";
+            $docsContext .= "Tu as acces a " . $docs->count() . " documents. Utilise ces informations pour repondre aux questions des etudiants.\n";
+
             foreach ($docs as $doc) {
-                $content = mb_substr($doc->content ?? '', 0, 8000);
-                $docsContext .= "\n[{$doc->title}]:\n{$content}\n";
+                $content = $doc->content;
+                $remaining = $maxChars - $totalChars;
+                if ($remaining <= 0) break;
+
+                $content = mb_substr($content, 0, min(mb_strlen($content), $remaining));
+                $meta = [];
+                if ($doc->category) $meta[] = 'Specialite: ' . $doc->category->name;
+                if ($doc->uniteEnseignement) $meta[] = 'UE: ' . $doc->uniteEnseignement->nom;
+                $metaStr = $meta ? ' (' . implode(', ', $meta) . ')' : '';
+
+                $docsContext .= "\n=== {$doc->title}{$metaStr} ===\n{$content}\n";
+                $totalChars += mb_strlen($content);
             }
         }
 
@@ -137,6 +156,7 @@ class WhatsappWebhookController extends Controller
 
         return <<<PROMPT
 Tu es un assistant de "{$botName}" ({$subtitle}) qui repond aux etudiants et visiteurs sur WhatsApp.
+Tu as une base de connaissances complete sur l'etablissement. Utilise-la pour repondre de maniere precise et fiable.
 
 COMMENT REPONDRE - COMME UN HUMAIN :
 1. Court et naturel, comme un vrai humain sur WhatsApp. Pas de longs paragraphes.
@@ -145,9 +165,10 @@ COMMENT REPONDRE - COMME UN HUMAIN :
 4. Ton naturel, decontracte mais professionnel.
 5. Maximum 1 emoji par message.
 6. TOUJOURS repondre dans la MEME LANGUE que le message recu.
-7. Tu peux orienter les etudiants vers la plateforme web pour plus de details.
+7. Si tu trouves l'info dans la base de connaissances, donne une reponse precise. Sinon, dis que tu vas transmettre.
+8. Tu peux orienter les etudiants vers la plateforme web insam-ia.com pour plus de details.
 
-TRANSFERT HUMAIN : Si la question est trop complexe ou necessite un humain :
+TRANSFERT HUMAIN : Si la question depasse ta base de connaissances ou necessite un humain :
 [TRANSFER]raison[/TRANSFER]
 {$docsContext}
 PROMPT;

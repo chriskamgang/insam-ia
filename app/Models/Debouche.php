@@ -11,7 +11,12 @@ class Debouche extends Model
         'title',
         'description',
         'icon',
+        'ai_details',
         'sort_order',
+    ];
+
+    protected $casts = [
+        'ai_details' => 'array',
     ];
 
     public function category(): BelongsTo

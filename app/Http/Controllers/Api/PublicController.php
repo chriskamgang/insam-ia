@@ -54,9 +54,25 @@ class PublicController extends Controller
             'videos',
             'roadmapSteps',
             'certifications',
+            'knowledgeDocuments as courses_count',
         ])->findOrFail($id);
 
         return response()->json(['category' => $category]);
+    }
+
+    public function categoryCourses($id)
+    {
+        $ues = \App\Models\UniteEnseignement::where('category_id', $id)
+            ->with(['knowledgeDocuments' => function ($q) {
+                $q->select('id', 'title', 'type', 'ue_id', 'file_path', 'created_at')
+                    ->orderBy('title');
+            }])
+            ->orderBy('semestre')
+            ->orderBy('sort_order')
+            ->orderBy('nom')
+            ->get(['id', 'nom', 'code', 'semestre', 'annee', 'coefficient']);
+
+        return response()->json(['ues' => $ues]);
     }
 
     public function categoryVideos($id)

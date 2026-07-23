@@ -47,9 +47,9 @@ function markdownToHtml(md) {
 // ── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
     const map = {
-        completed: { label: 'Complet\u00e9e', bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
+        completed: { label: 'Completée', bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
         pending:   { label: 'En cours',      bg: '#fef3c7', color: '#92400e', border: '#fcd34d' },
-        failed:    { label: '\u00c9chou\u00e9e',  bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
+        failed:    { label: 'Échouée',  bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
     };
     const s = map[status] || map.pending;
     return (
@@ -113,7 +113,7 @@ function RevisionCardItem({ card, onView, onDelete, deleting }) {
 
                 {/* Title */}
                 <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, lineHeight: 1.4, margin: 0 }}>
-                    {card.title || 'Fiche de r\u00e9vision'}
+                    {card.title || 'Fiche de révision'}
                 </h3>
 
                 {/* Summary (truncated) */}
@@ -236,7 +236,7 @@ function DetailView({ card, onBack, onDelete, deleting }) {
                                 fontSize: 26, fontWeight: 800, color: 'white',
                                 margin: '0 0 16px', lineHeight: 1.3,
                             }}>
-                                {card.title || 'Fiche de r\u00e9vision'}
+                                {card.title || 'Fiche de révision'}
                             </h1>
 
                             {/* Meta */}
@@ -286,7 +286,7 @@ function DetailView({ card, onBack, onDelete, deleting }) {
                         </div>
                         <div>
                             <div style={{ fontSize: 11, fontWeight: 700, color: TEAL, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>
-                                R\u00e9sum\u00e9
+                                Résumé
                             </div>
                             <p style={{ fontSize: 14, color: '#1e4040', lineHeight: 1.65, margin: 0 }}>
                                 {card.summary}
@@ -305,7 +305,7 @@ function DetailView({ card, onBack, onDelete, deleting }) {
                     }}>
                         <h2 style={{ fontSize: 15, fontWeight: 800, color: NAVY, margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <i className="fas fa-list-check" style={{ color: TEAL }}></i>
-                            Points cl\u00e9s
+                            Points clés
                         </h2>
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {card.key_points.map((point, i) => (
@@ -419,7 +419,7 @@ export default function RevisionCards() {
         setError('');
         api.get('/api/revision-cards')
             .then(r => setCards(r.data?.data || r.data || []))
-            .catch(() => setError('Impossible de charger les fiches. Veuillez r\u00e9essayer.'))
+            .catch(() => setError('Impossible de charger les fiches. Veuillez réessayer.'))
             .finally(() => setLoading(false));
     };
 
@@ -433,7 +433,7 @@ export default function RevisionCards() {
     // ── Generate ─────────────────────────────────────────────────────────────
     const handleGenerate = async () => {
         if (!selectedCategory) {
-            setGenError('Veuillez s\u00e9lectionner une cat\u00e9gorie.');
+            setGenError('Veuillez sélectionner une catégorie.');
             return;
         }
         setGenError('');
@@ -443,11 +443,11 @@ export default function RevisionCards() {
             const res = await api.post('/api/revision-cards/generate', { category_id: selectedCategory });
             const newCard = res.data?.data || res.data;
             setCards(prev => [newCard, ...prev]);
-            setGenSuccess('Fiche g\u00e9n\u00e9r\u00e9e avec succ\u00e8s !');
+            setGenSuccess('Fiche générée avec succès !');
             setSelectedCategory('');
             setTimeout(() => setGenSuccess(''), 4000);
         } catch (err) {
-            const msg = err.response?.data?.message || "Une erreur s'est produite lors de la g\u00e9n\u00e9ration.";
+            const msg = err.response?.data?.message || "Une erreur s'est produite lors de la génération.";
             setGenError(msg);
         } finally {
             setGenerating(false);
@@ -456,14 +456,14 @@ export default function RevisionCards() {
 
     // ── Delete ────────────────────────────────────────────────────────────────
     const handleDelete = async (id) => {
-        if (!window.confirm('Supprimer cette fiche de r\u00e9vision ?')) return;
+        if (!window.confirm('Supprimer cette fiche de révision ?')) return;
         setDeletingId(id);
         try {
             await api.delete(`/api/revision-cards/${id}`);
             setCards(prev => prev.filter(c => c.id !== id));
             if (selectedCard?.id === id) setSelectedCard(null);
         } catch {
-            alert('Impossible de supprimer cette fiche. Veuillez r\u00e9essayer.');
+            alert('Impossible de supprimer cette fiche. Veuillez réessayer.');
         } finally {
             setDeletingId(null);
         }
@@ -506,12 +506,12 @@ export default function RevisionCards() {
                             </span>
                         </div>
                         <h1 style={{ fontSize: 32, fontWeight: 800, color: 'white', margin: '0 0 12px', lineHeight: 1.2 }}>
-                            Fiches de R\u00e9vision{' '}
+                            Fiches de Révision{' '}
                             <span style={{ color: TEAL }}>IA</span>
                             {' '}<i className="fas fa-sparkles" style={{ fontSize: 22, color: TEAL, verticalAlign: 'middle' }}></i>
                         </h1>
                         <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 15, maxWidth: 520, margin: 0, lineHeight: 1.6 }}>
-                            G\u00e9n\u00e9rez des fiches de r\u00e9vision intelligentes \u00e0 partir de vos formations
+                            Générez des fiches de révision intelligentes à partir de vos formations
                         </p>
                     </div>
 
@@ -523,7 +523,7 @@ export default function RevisionCards() {
                             borderRadius: 16, padding: '16px 28px', textAlign: 'center',
                         }}>
                             <div style={{ fontSize: 34, fontWeight: 800, color: 'white', lineHeight: 1 }}>{cards.length}</div>
-                            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)', marginTop: 4 }}>fiche{cards.length !== 1 ? 's' : ''} cr\u00e9\u00e9e{cards.length !== 1 ? 's' : ''}</div>
+                            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)', marginTop: 4 }}>fiche{cards.length !== 1 ? 's' : ''} créée{cards.length !== 1 ? 's' : ''}</div>
                         </div>
                     )}
                 </div>
@@ -547,7 +547,7 @@ export default function RevisionCards() {
                             <i className="fas fa-wand-magic-sparkles"></i>
                         </div>
                         <h2 style={{ fontSize: 16, fontWeight: 800, color: NAVY, margin: 0 }}>
-                            G\u00e9n\u00e9rer une nouvelle fiche
+                            Générer une nouvelle fiche
                         </h2>
                     </div>
 
@@ -555,7 +555,7 @@ export default function RevisionCards() {
                         {/* Category select */}
                         <div style={{ flex: '1 1 240px' }}>
                             <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
-                                S\u00e9lectionner une formation
+                                Sélectionner une formation
                             </label>
                             <div style={{ position: 'relative' }}>
                                 <i className="fas fa-graduation-cap" style={{
@@ -578,7 +578,7 @@ export default function RevisionCards() {
                                     onFocus={e => { e.target.style.borderColor = TEAL; e.target.style.boxShadow = `0 0 0 3px ${TEAL}20`; }}
                                     onBlur={e => { e.target.style.borderColor = selectedCategory ? TEAL : '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                                 >
-                                    <option value="">-- Choisir une cat\u00e9gorie --</option>
+                                    <option value="">-- Choisir une catégorie --</option>
                                     {categories.map(c => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
@@ -611,8 +611,8 @@ export default function RevisionCards() {
                             onMouseLeave={e => { if (!generating) e.currentTarget.style.boxShadow = '0 4px 14px rgba(91,188,180,0.35)'; }}
                         >
                             {generating
-                                ? <><i className="fas fa-circle-notch fa-spin"></i>G\u00e9n\u00e9ration en cours...</>
-                                : <><i className="fas fa-sparkles"></i>G\u00e9n\u00e9rer une fiche</>
+                                ? <><i className="fas fa-circle-notch fa-spin"></i>Génération en cours...</>
+                                : <><i className="fas fa-sparkles"></i>Générer une fiche</>
                             }
                         </button>
                     </div>
@@ -626,7 +626,7 @@ export default function RevisionCards() {
                             fontSize: 13, color: '#92400e',
                         }}>
                             <i className="fas fa-hourglass-half fa-spin"></i>
-                            L'IA analyse le contenu de votre formation et g\u00e9n\u00e8re votre fiche... Cela peut prendre 10 \u00e0 20 secondes.
+                            L'IA analyse le contenu de votre formation et génère votre fiche... Cela peut prendre 10 à 20 secondes.
                         </div>
                     )}
 
@@ -676,7 +676,7 @@ export default function RevisionCards() {
                                 cursor: 'pointer', fontFamily: 'inherit',
                             }}
                         >
-                            R\u00e9essayer
+                            Réessayer
                         </button>
                     </div>
                 )}
@@ -685,7 +685,7 @@ export default function RevisionCards() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                     <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>
                         <i className="fas fa-layer-group" style={{ color: TEAL, marginRight: 10, fontSize: 16 }}></i>
-                        Mes fiches de r\u00e9vision
+                        Mes fiches de révision
                         {!loading && cards.length > 0 && (
                             <span style={{
                                 marginLeft: 10, fontSize: 13, fontWeight: 700,
@@ -748,11 +748,11 @@ export default function RevisionCards() {
                             <i className="fas fa-brain"></i>
                         </div>
                         <h3 style={{ fontSize: 20, fontWeight: 700, color: NAVY, marginBottom: 8 }}>
-                            Aucune fiche de r\u00e9vision
+                            Aucune fiche de révision
                         </h3>
                         <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
-                            Vous n'avez pas encore g\u00e9n\u00e9r\u00e9 de fiche de r\u00e9vision.<br />
-                            S\u00e9lectionnez une formation et laissez l'IA cr\u00e9er votre premi\u00e8re fiche !
+                            Vous n'avez pas encore généré de fiche de révision.<br />
+                            Sélectionnez une formation et laissez l'IA créer votre première fiche !
                         </p>
                         <button
                             onClick={() => document.querySelector('select')?.focus()}
@@ -766,7 +766,7 @@ export default function RevisionCards() {
                             }}
                         >
                             <i className="fas fa-wand-magic-sparkles"></i>
-                            G\u00e9n\u00e9rez votre premi\u00e8re fiche
+                            Générez votre première fiche
                         </button>
                     </div>
                 )}

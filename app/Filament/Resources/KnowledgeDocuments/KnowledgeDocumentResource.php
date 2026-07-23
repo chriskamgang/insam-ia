@@ -18,7 +18,15 @@ class KnowledgeDocumentResource extends Resource
 {
     protected static ?string $model = KnowledgeDocument::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
+
+    protected static ?string $navigationLabel = 'Base de Connaissances';
+
+    protected static ?string $modelLabel = 'Document';
+
+    protected static ?string $pluralModelLabel = 'Base de Connaissances';
+
+    protected static ?int $navigationSort = 2;
 
     public static function form(Schema $schema): Schema
     {
@@ -32,9 +40,7 @@ class KnowledgeDocumentResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array

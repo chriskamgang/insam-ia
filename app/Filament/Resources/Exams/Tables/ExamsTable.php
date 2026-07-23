@@ -16,9 +16,15 @@ class ExamsTable
         return $table
             ->columns([
                 TextColumn::make('title')
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(40),
                 TextColumn::make('category.name')
+                    ->label('Categorie')
                     ->searchable(),
+                TextColumn::make('ue.nom')
+                    ->label('UE')
+                    ->searchable()
+                    ->placeholder('—'),
                 TextColumn::make('filiere')
                     ->searchable(),
                 TextColumn::make('matiere')
@@ -26,26 +32,17 @@ class ExamsTable
                 TextColumn::make('niveau')
                     ->searchable(),
                 TextColumn::make('annee')
-                    ->searchable(),
-                TextColumn::make('file_path')
-                    ->searchable(),
-                TextColumn::make('correction_path')
-                    ->searchable(),
+                    ->label('Annee'),
                 IconColumn::make('is_corrected')
-                    ->boolean(),
-                TextColumn::make('uploaded_by')
-                    ->numeric()
-                    ->sortable(),
+                    ->boolean()
+                    ->label('Corrige'),
                 TextColumn::make('source')
                     ->badge(),
                 TextColumn::make('downloads_count')
                     ->numeric()
-                    ->sortable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
+                    ->label('DL'),
+                TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),

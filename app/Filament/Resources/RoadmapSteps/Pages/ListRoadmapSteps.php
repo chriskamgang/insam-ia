@@ -92,7 +92,7 @@ PROMPT;
                                 'description' => $step['description'] ?? '',
                                 'level' => $step['level'] ?? 'debutant',
                                 'duration' => $step['duration'] ?? '',
-                                'skills' => is_array($step['skills'] ?? null) ? $step['skills'] : [],
+                                'skills' => is_array($step['skills'] ?? null) ? implode(', ', $step['skills']) : ($step['skills'] ?? ''),
                                 'icon' => $step['icon'] ?? 'fas fa-book',
                                 'color' => $step['color'] ?? '#3B82F6',
                                 'sort_order' => $step['step_number'] ?? 0,
