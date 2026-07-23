@@ -393,9 +393,9 @@ export default function Categories() {
                                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                                 }}>
                                     <div style={{ fontSize: 18, fontWeight: 800, color: TEAL }}>
-                                        {categories.reduce((a, c) => a + (c.videos_count || 0), 0)}+
+                                        {categories.reduce((a, c) => a + (c.courses_count || 0), 0)}+
                                     </div>
-                                    <div style={{ fontSize: 10, color: '#9ca3af' }}>Videos TP</div>
+                                    <div style={{ fontSize: 10, color: '#9ca3af' }}>Cours</div>
                                 </div>
                             </div>
                         </div>
@@ -471,18 +471,24 @@ function CategoryCard({ cat, idx, t }) {
                 {/* ── IMAGE / THUMBNAIL AREA ── */}
                 <div style={{
                     height: 150,
-                    background: gradient,
+                    background: cat.image ? `url(/storage/${cat.image}) center/cover no-repeat` : gradient,
                     position: 'relative',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     overflow: 'hidden',
                 }}>
+                    {/* Overlay for readability when image is used */}
+                    {cat.image && (
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 100%)' }}></div>
+                    )}
                     {/* Background pattern */}
-                    <div style={{
-                        position: 'absolute', inset: 0,
-                        background: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 40%)',
-                    }}></div>
+                    {!cat.image && (
+                        <div style={{
+                            position: 'absolute', inset: 0,
+                            background: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 40%)',
+                        }}></div>
+                    )}
 
                     {/* Center icon */}
                     <div style={{
@@ -494,6 +500,7 @@ function CategoryCard({ cat, idx, t }) {
                         border: '1px solid rgba(255,255,255,0.25)',
                         transition: 'transform .22s',
                         transform: hovered ? 'scale(1.1)' : 'scale(1)',
+                        zIndex: 1,
                     }}>
                         <i className={cat.icon || 'fas fa-laptop-code'}></i>
                     </div>
@@ -520,7 +527,7 @@ function CategoryCard({ cat, idx, t }) {
                             {cat.name?.split(' ')[0] || 'Formation'}
                         </span>
                         {/* Video count tag */}
-                        {cat.videos_count > 0 && (
+                        {cat.courses_count > 0 && (
                             <span style={{
                                 background: 'rgba(255,255,255,0.92)',
                                 color: NAVY,
@@ -531,7 +538,7 @@ function CategoryCard({ cat, idx, t }) {
                                 display: 'flex', alignItems: 'center', gap: 4,
                             }}>
                                 <i className="fas fa-play-circle" style={{ color: accentColor, fontSize: 9 }}></i>
-                                {cat.videos_count}
+                                {cat.courses_count}
                             </span>
                         )}
                     </div>
@@ -564,6 +571,7 @@ function CategoryCard({ cat, idx, t }) {
                         WebkitLineClamp: 3,
                         WebkitBoxOrient: 'vertical',
                         minHeight: 60,
+                        textAlign: 'justify',
                     }}>
                         {cat.description || 'Decouvrez cette filiere et ses opportunites professionnelles.'}
                     </p>
@@ -597,8 +605,8 @@ function CategoryCard({ cat, idx, t }) {
                         color: '#9ca3af',
                         display: 'flex', alignItems: 'center', gap: 4,
                     }}>
-                        <i className="fas fa-video" style={{ fontSize: 10, color: accentColor }}></i>
-                        {cat.videos_count || 0} {t('categories.videos')}
+                        <i className="fas fa-book" style={{ fontSize: 10, color: accentColor }}></i>
+                        {cat.courses_count || 0} {t('categories.videos')}
                     </span>
                 </div>
             </div>

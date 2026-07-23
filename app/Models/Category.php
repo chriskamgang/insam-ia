@@ -2,6 +2,7 @@
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Category extends Model
 {
@@ -13,4 +14,9 @@ class Category extends Model
     public function certifications(): HasMany { return $this->hasMany(Certification::class); }
     public function exams(): HasMany { return $this->hasMany(Exam::class); }
     public function quizzes(): HasMany { return $this->hasMany(Quiz::class); }
+    public function unitesEnseignement(): HasMany { return $this->hasMany(UniteEnseignement::class); }
+    public function knowledgeDocuments(): HasManyThrough
+    {
+        return $this->hasManyThrough(KnowledgeDocument::class, UniteEnseignement::class, 'category_id', 'ue_id');
+    }
 }

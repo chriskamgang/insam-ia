@@ -30,7 +30,7 @@ class PublicController extends Controller
 
     public function categories()
     {
-        $categories = Category::withCount('videos')
+        $categories = Category::withCount(['videos', 'knowledgeDocuments as courses_count'])
             ->orderBy('sort_order')
             ->get();
 
