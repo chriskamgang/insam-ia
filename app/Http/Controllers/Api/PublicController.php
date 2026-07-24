@@ -75,6 +75,12 @@ class PublicController extends Controller
         return response()->json(['ues' => $ues]);
     }
 
+    public function documentShow($id)
+    {
+        $doc = KnowledgeDocument::with('category:id,name')->findOrFail($id);
+        return response()->json(['document' => $doc]);
+    }
+
     public function categoryVideos($id)
     {
         $category = Category::findOrFail($id);

@@ -56,10 +56,12 @@ export default function CourseRevision() {
     const filePath = params.get('file') || '';
     const categoryId = params.get('cat') || '';
 
+    const [document, setDocument] = useState(null);
+    const [docLoading, setDocLoading] = useState(true);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [summaryLoading, setSummaryLoading] = useState(true);
+    const [summaryLoading, setSummaryLoading] = useState(false);
 
     // Quiz state
     const [quizQuestions, setQuizQuestions] = useState(null);
@@ -70,10 +72,19 @@ export default function CourseRevision() {
     // Exercises state
     const [exerciseLoading, setExerciseLoading] = useState(false);
 
-    // Auto-generate summary on mount
+    // Right panel mode: 'course' | 'quiz'
+    const [rightPanel, setRightPanel] = useState('course');
+
+    // Fetch document content on mount
     useEffect(() => {
-        generateSummary();
-    }, []);
+        setDocLoading(true);
+        api.get(`/api/public/documents/${docId}`)
+            .then(res => {
+                setDocument(res.data.document || res.data.data || res.data);
+            })
+            .catch(() => {})
+            .finally(() => setDocLoading(false));
+    }, [docId]);
 
     // Auto-scroll chat
     useEffect(() => {
@@ -81,18 +92,20 @@ export default function CourseRevision() {
     }, [messages, loading]);
 
     const generateSummary = async () => {
+        if (summaryLoading) return;
         setSummaryLoading(true);
-        setMessages([{ role: 'system', content: 'Generation du resume detaille en cours...' }]);
+        const docContent = document?.content || '';
+        setMessages(prev => [...prev, { role: 'system', content: 'Generation du resume detaille en cours...' }]);
         try {
             const res = await api.post('/api/exams/summarize-course', {
-                course_title: title,
-                course_content: '',
+                course_title: document?.title || title,
+                course_content: docContent,
                 filiere: ueName,
             });
             const summary = res.data.summary || 'Resume non disponible.';
-            setMessages([{ role: 'assistant', content: summary }]);
+            setMessages(prev => [...prev.filter(m => m.role !== 'system'), { role: 'assistant', content: '**Resume du cours:**\n\n' + summary }]);
         } catch {
-            setMessages([{ role: 'assistant', content: 'Erreur lors de la generation du resume. Vous pouvez poser vos questions directement.' }]);
+            setMessages(prev => [...prev.filter(m => m.role !== 'system'), { role: 'assistant', content: 'Erreur lors de la generation du resume.' }]);
         } finally {
             setSummaryLoading(false);
         }
@@ -105,13 +118,15 @@ export default function CourseRevision() {
         setMessages(prev => [...prev, { role: 'user', content: q }]);
         setLoading(true);
         try {
+            const docContent = document?.content || '';
             const context = messages
                 .filter(m => m.role !== 'system')
+                .slice(-6)
                 .map(m => `${m.role === 'user' ? 'Etudiant' : 'IA'}: ${m.content}`)
                 .join('\n\n');
 
             const res = await api.post('/api/chat', {
-                message: `Contexte: L'etudiant revise le cours "${title}" (UE: ${ueName}). Voici la conversation precedente:\n\n${context}\n\nNouvelle question de l'etudiant: ${q}\n\nReponds de maniere pedagogique avec des exemples concrets et des exercices pratiques quand c'est pertinent. Utilise le format Markdown.`,
+                message: `Contexte: L'etudiant revise le cours "${document?.title || title}" (UE: ${ueName}).\n\nContenu du cours:\n${docContent}\n\nConversation precedente:\n${context}\n\nQuestion: ${q}\n\nReponds de maniere pedagogique. Utilise le format Markdown.`,
             });
             const answer = res.data?.response || res.data?.message || res.data?.answer || 'Pas de reponse.';
             setMessages(prev => [...prev, { role: 'assistant', content: answer }]);
@@ -129,10 +144,11 @@ export default function CourseRevision() {
         setQuizQuestions(null);
         setQuizAnswers({});
         setQuizSubmitted(false);
+        setRightPanel('quiz');
         try {
             const res = await api.post('/api/exams/generate-quiz', {
-                course_title: title,
-                course_content: '',
+                course_title: document?.title || title,
+                course_content: document?.content || '',
                 num_questions: 5,
             });
             setQuizQuestions(res.data.questions || []);
@@ -148,13 +164,12 @@ export default function CourseRevision() {
         setExerciseLoading(true);
         try {
             const res = await api.post('/api/exams/generate-exercises', {
-                matiere: title,
+                matiere: document?.title || title,
                 filiere: ueName,
             });
             const exercise = res.data.exercise || 'Aucun exercice genere.';
             setMessages(prev => [...prev, { role: 'assistant', content: '**Exercices generes par l\'IA:**\n\n' + exercise }]);
-            // Close quiz panel if open
-            setQuizQuestions(null);
+            setRightPanel('course');
         } catch {
             setMessages(prev => [...prev, { role: 'assistant', content: 'Erreur lors de la generation des exercices.' }]);
         } finally {
@@ -171,7 +186,9 @@ export default function CourseRevision() {
 
     const pdfUrl = filePath
         ? `/api/exams/view-pdf?path=${encodeURIComponent(filePath)}#toolbar=0&navpanes=0`
-        : null;
+        : (document?.file_path ? `/api/exams/view-pdf?path=${encodeURIComponent(document.file_path)}#toolbar=0&navpanes=0` : null);
+
+    const courseContent = document?.content || '';
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafb' }}>
@@ -192,7 +209,7 @@ export default function CourseRevision() {
                 <i className="fas fa-book-reader" style={{ color: TEAL, fontSize: 14, flexShrink: 0 }}></i>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 style={{ color: 'white', fontSize: 13, fontWeight: 700, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {title}
+                        {document?.title || title}
                     </h3>
                     {ueName && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{ueName}</span>}
                 </div>
@@ -200,11 +217,12 @@ export default function CourseRevision() {
                     <button onClick={generateSummary} disabled={summaryLoading}
                         style={{
                             fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
-                            background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none',
+                            background: summaryLoading ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
+                            color: 'white', border: 'none',
                             cursor: summaryLoading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
                         }}
                     >
-                        <i className="fas fa-file-alt" style={{ fontSize: 10 }}></i> Resume
+                        <i className={summaryLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-file-alt'} style={{ fontSize: 10 }}></i> Resume
                     </button>
                     <button onClick={generateExercises} disabled={exerciseLoading}
                         style={{
@@ -219,13 +237,24 @@ export default function CourseRevision() {
                     <button onClick={generateQuiz} disabled={quizLoading}
                         style={{
                             fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
-                            background: quizLoading ? 'rgba(255,255,255,0.05)' : (quizQuestions ? '#E74C3C' : TEAL),
+                            background: quizLoading ? 'rgba(255,255,255,0.05)' : (rightPanel === 'quiz' ? '#E74C3C' : TEAL),
                             color: 'white', border: 'none',
                             cursor: quizLoading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
                         }}
                     >
                         <i className={quizLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-question-circle'} style={{ fontSize: 10 }}></i> Quiz
                     </button>
+                    {rightPanel === 'quiz' && (
+                        <button onClick={() => setRightPanel('course')}
+                            style={{
+                                fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
+                                background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                            }}
+                        >
+                            <i className="fas fa-book" style={{ fontSize: 10 }}></i> Cours
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -250,6 +279,17 @@ export default function CourseRevision() {
 
                     {/* Messages */}
                     <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 8px' }}>
+                        {messages.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '40px 16px', color: '#9ca3af' }}>
+                                <div style={{ width: 50, height: 50, borderRadius: 14, background: `${TEAL}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                                    <i className="fas fa-comments" style={{ fontSize: 22, color: `${TEAL}60` }}></i>
+                                </div>
+                                <p style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', margin: '0 0 6px' }}>Posez une question</p>
+                                <p style={{ fontSize: 11, lineHeight: 1.5, margin: 0 }}>
+                                    L'IA vous aidera a comprendre ce cours. Vous pouvez aussi utiliser les boutons Resume, Exercices et Quiz en haut.
+                                </p>
+                            </div>
+                        )}
                         {messages.map((msg, i) => (
                             <div key={i} style={{
                                 marginBottom: 12,
@@ -305,7 +345,6 @@ export default function CourseRevision() {
                             'Explique le chapitre 1',
                             'Donne un exercice',
                             'Points cles ?',
-                            'Resume rapide',
                         ].map((q, i) => (
                             <button key={i} onClick={() => { setInput(q); }}
                                 style={{
@@ -357,19 +396,19 @@ export default function CourseRevision() {
                     </div>
                 </div>
 
-                {/* RIGHT: Course content (PDF or Quiz) */}
+                {/* RIGHT: Course content or Quiz */}
                 <div className="rev-right">
-                    {quizQuestions ? (
+                    {rightPanel === 'quiz' && quizQuestions ? (
                         /* Quiz panel */
                         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: 'white' }}>
                             <div style={{ maxWidth: 700, margin: '0 auto' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                                     <i className="fas fa-question-circle" style={{ color: '#F5A623', fontSize: 20 }}></i>
-                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0 }}>Quiz — {title}</h3>
-                                    <button onClick={() => setQuizQuestions(null)}
+                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0 }}>Quiz — {document?.title || title}</h3>
+                                    <button onClick={() => setRightPanel('course')}
                                         style={{ marginLeft: 'auto', background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 600, color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
                                     >
-                                        <i className="fas fa-times" style={{ fontSize: 10 }}></i> Fermer le quiz
+                                        <i className="fas fa-book" style={{ fontSize: 10 }}></i> Retour au cours
                                     </button>
                                 </div>
 
@@ -437,33 +476,48 @@ export default function CourseRevision() {
                             </div>
                         </div>
                     ) : pdfUrl ? (
+                        /* PDF viewer */
                         <iframe
                             src={pdfUrl}
                             style={{ flex: 1, border: 'none', background: 'white' }}
-                            title={title}
+                            title={document?.title || title}
                         />
+                    ) : docLoading ? (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ width: 40, height: 40, border: '3px solid #e5e7eb', borderTopColor: TEAL, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }}></div>
+                                <p style={{ fontSize: 13, color: '#9ca3af' }}>Chargement du cours...</p>
+                            </div>
+                        </div>
+                    ) : courseContent ? (
+                        /* Text course content */
+                        <div style={{ flex: 1, overflowY: 'auto', background: 'white' }}>
+                            <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 40px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottom: `2px solid ${TEAL}30` }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: `${TEAL}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: TEAL, fontSize: 20, flexShrink: 0 }}>
+                                        <i className="fas fa-book-open"></i>
+                                    </div>
+                                    <div>
+                                        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{document?.title || title}</h2>
+                                        {ueName && <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>{ueName}</p>}
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: 14, lineHeight: 2, color: '#374151', whiteSpace: 'pre-wrap' }}
+                                    dangerouslySetInnerHTML={{ __html: renderMd(courseContent) }}
+                                />
+                            </div>
+                        </div>
                     ) : (
+                        /* No content at all */
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
                             <div style={{ textAlign: 'center', maxWidth: 400 }}>
                                 <div style={{ width: 80, height: 80, borderRadius: 20, background: `${TEAL}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                                     <i className="fas fa-book-open" style={{ fontSize: 32, color: TEAL }}></i>
                                 </div>
-                                <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>{title}</h3>
+                                <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>{document?.title || title}</h3>
                                 <p style={{ fontSize: 13, color: '#9ca3af', lineHeight: 1.6, margin: '0 0 20px' }}>
-                                    Ce cours n'a pas de support PDF. Utilisez l'assistant IA a gauche pour obtenir le resume, poser des questions, ou generer des exercices.
+                                    Aucun contenu disponible. Utilisez l'assistant IA a gauche pour poser des questions.
                                 </p>
-                                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                                    <button onClick={generateExercises} disabled={exerciseLoading}
-                                        style={{ padding: '10px 20px', borderRadius: 10, background: '#F5A623', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-                                    >
-                                        <i className={exerciseLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-pen-fancy'}></i> Exercices
-                                    </button>
-                                    <button onClick={generateQuiz} disabled={quizLoading}
-                                        style={{ padding: '10px 20px', borderRadius: 10, background: TEAL, color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-                                    >
-                                        <i className={quizLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-question-circle'}></i> Quiz
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     )}
