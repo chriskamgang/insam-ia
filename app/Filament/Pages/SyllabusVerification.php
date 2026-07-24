@@ -25,7 +25,7 @@ class SyllabusVerification extends Page implements HasForms
     protected static ?string $navigationLabel = 'Verification Syllabus';
     protected static ?string $title = 'Verification de conformite';
     protected static ?int $navigationSort = 90;
-    protected static string|BackedEnum|null $navigationGroup = 'Outils IA';
+    protected static \UnitEnum|string|null $navigationGroup = 'Outils IA';
 
     protected string $view = 'filament.pages.syllabus-verification';
 
