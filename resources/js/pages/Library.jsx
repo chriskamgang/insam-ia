@@ -103,7 +103,7 @@ function LibExamTaker({ exam, onClose }) {
     const [showCorrection, setShowCorrection] = useState(false);
 
     const fileUrl = exam.file_path
-        ? (exam.file_path.startsWith('http') ? exam.file_path : `/storage/${exam.file_path}`) + '#toolbar=0&navpanes=0'
+        ? `/api/exams/view-pdf?path=${encodeURIComponent(exam.file_path)}#toolbar=0&navpanes=0`
         : null;
 
     useEffect(() => {
