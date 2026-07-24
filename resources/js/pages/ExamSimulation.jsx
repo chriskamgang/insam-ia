@@ -739,7 +739,7 @@ export default function ExamSimulation() {
     if (view === 'simulation' && activeSimulation) {
         const exam = activeSimulation.exam || activeSimulation;
         const fileUrl = exam.file_path
-            ? (exam.file_path.startsWith('http') ? exam.file_path : `/storage/${exam.file_path}`)
+            ? (exam.file_path.startsWith('http') ? exam.file_path : `/storage/${exam.file_path}`) + '#toolbar=0&navpanes=0'
             : null;
 
         return (
@@ -826,157 +826,98 @@ export default function ExamSimulation() {
                     </div>
                 </div>
 
-                {/* Main content */}
-                <div style={{ ...W, padding: '32px 24px', maxWidth: 900 }}>
+                {/* Main content: PDF left + answers right */}
+                <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: 'calc(100vh - 64px)' }}>
 
-                    {error && (
-                        <div style={{
-                            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
-                            padding: '12px 16px', marginBottom: 20,
-                            display: 'flex', gap: 10, alignItems: 'center',
-                        }}>
-                            <i className="fas fa-exclamation-circle" style={{ color: '#ef4444', flexShrink: 0 }}></i>
-                            <span style={{ fontSize: 13, color: '#b91c1c' }}>{error}</span>
-                            <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
-                                <i className="fas fa-times"></i>
-                            </button>
+                    {/* Left: PDF viewer */}
+                    {fileUrl ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, borderRight: `2px solid ${TEAL}30` }}>
+                            <iframe
+                                src={fileUrl}
+                                style={{ flex: 1, border: 'none', background: 'white' }}
+                                title={exam.title}
+                            />
+                        </div>
+                    ) : (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
+                            <div style={{ textAlign: 'center', color: '#9ca3af' }}>
+                                <i className="fas fa-file-pdf" style={{ fontSize: 48, marginBottom: 12, color: '#e5e7eb' }}></i>
+                                <p style={{ fontSize: 14 }}>Aucun fichier PDF disponible pour ce sujet.</p>
+                                <p style={{ fontSize: 12 }}>Redigez vos reponses directement.</p>
+                            </div>
                         </div>
                     )}
 
-                    {/* Exam subject card */}
+                    {/* Right: Answer panel */}
                     <div style={{
-                        background: 'white', borderRadius: 16, border: '1px solid #f0f0f0',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.04)', marginBottom: 24, overflow: 'hidden',
+                        width: 440, flexShrink: 0, display: 'flex', flexDirection: 'column',
+                        background: '#f8fafb',
                     }}>
-                        <div style={{
-                            background: `linear-gradient(135deg, ${NAVY}, #243758)`,
-                            padding: '20px 28px',
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                                <div style={{
-                                    width: 44, height: 44, borderRadius: 12,
-                                    background: 'rgba(255,255,255,0.12)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 20, color: TEAL, flexShrink: 0,
-                                }}>
-                                    <i className="fas fa-file-alt"></i>
-                                </div>
-                                <div>
-                                    <h2 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: '0 0 6px' }}>
-                                        {exam.title}
-                                    </h2>
-                                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                                        {exam.matiere && (
-                                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-                                                <i className="fas fa-book" style={{ marginRight: 5 }}></i>{exam.matiere}
-                                            </span>
-                                        )}
-                                        {exam.annee && (
-                                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-                                                <i className="fas fa-calendar" style={{ marginRight: 5 }}></i>{exam.annee}
-                                            </span>
-                                        )}
-                                        {exam.niveau && (
-                                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-                                                <i className="fas fa-layer-group" style={{ marginRight: 5 }}></i>{exam.niveau}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style={{ padding: '20px 28px' }}>
-                            {exam.description && (
-                                <p style={{ fontSize: 14, color: '#374151', lineHeight: 1.7, margin: '0 0 16px' }}>
-                                    {exam.description}
-                                </p>
-                            )}
-
-                            {/* Instruction note */}
+                        {error && (
                             <div style={{
-                                background: '#f0fdf9', border: `1px solid ${TEAL}30`, borderRadius: 10,
-                                padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-start',
-                                marginBottom: fileUrl ? 16 : 0,
+                                background: '#fef2f2', border: '1px solid #fecaca',
+                                padding: '8px 14px', margin: '10px 14px 0',
+                                borderRadius: 8, display: 'flex', gap: 8, alignItems: 'center',
                             }}>
-                                <i className="fas fa-info-circle" style={{ color: TEAL, fontSize: 14, marginTop: 1, flexShrink: 0 }}></i>
-                                <p style={{ margin: 0, fontSize: 13, color: '#065f46', lineHeight: 1.6 }}>
-                                    Consultez le sujet d'examen et redigez vos reponses dans la zone ci-dessous. Vous pouvez developper votre analyse, vos calculs et vos conclusions.
-                                </p>
-                            </div>
-
-                            {/* PDF link */}
-                            {fileUrl && (
-                                <button
-                                    onClick={() => window.open(fileUrl, '_blank', 'noopener,noreferrer,toolbar=0,menubar=0')}
-                                    style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 8,
-                                        marginTop: 16,
-                                        padding: '10px 20px', borderRadius: 10,
-                                        background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
-                                        color: 'white', border: 'none',
-                                        fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                                        fontFamily: 'inherit',
-                                        boxShadow: '0 3px 8px rgba(91,188,180,0.30)',
-                                    }}
-                                >
-                                    <i className="fas fa-file-pdf"></i>
-                                    Voir le sujet (PDF)
+                                <i className="fas fa-exclamation-circle" style={{ color: '#ef4444', flexShrink: 0, fontSize: 12 }}></i>
+                                <span style={{ fontSize: 12, color: '#b91c1c', flex: 1 }}>{error}</span>
+                                <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11 }}>
+                                    <i className="fas fa-times"></i>
                                 </button>
-                            )}
-                        </div>
-                    </div>
+                            </div>
+                        )}
 
-                    {/* Answer textarea */}
-                    <div style={{
-                        background: 'white', borderRadius: 16, border: '1px solid #f0f0f0',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden',
-                    }}>
+                        {/* Answer header */}
                         <div style={{
-                            padding: '16px 24px', borderBottom: '1px solid #f3f4f6',
-                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '14px 18px', borderBottom: '1px solid #e5e7eb',
+                            display: 'flex', alignItems: 'center', gap: 10, background: 'white',
                         }}>
                             <i className="fas fa-pen-alt" style={{ color: TEAL, fontSize: 14 }}></i>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Vos reponses</span>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Vos reponses</div>
+                                <div style={{ fontSize: 11, color: '#9ca3af' }}>Lisez le sujet a gauche et redigez ici</div>
+                            </div>
                         </div>
-                        <div style={{ padding: '0 4px 4px' }}>
-                            <textarea
-                                value={answers}
-                                onChange={e => setAnswers(e.target.value)}
-                                placeholder="Redigez vos reponses ici. Structurez votre copie clairement en indiquant les numeros de questions, vos demarches de calcul, et vos conclusions..."
-                                style={{
-                                    width: '100%', minHeight: 420,
-                                    padding: '20px 24px',
-                                    border: 'none', outline: 'none', resize: 'vertical',
-                                    fontSize: 14, color: '#1e293b', lineHeight: 1.8,
-                                    fontFamily: 'inherit', boxSizing: 'border-box',
-                                    background: 'transparent',
-                                }}
-                            />
-                        </div>
+
+                        {/* Textarea */}
+                        <textarea
+                            value={answers}
+                            onChange={e => setAnswers(e.target.value)}
+                            placeholder={"Exercice 1:\nQuestion a) ...\nReponse: ...\n\nQuestion b) ...\nReponse: ...\n\nExercice 2:\n..."}
+                            style={{
+                                flex: 1, border: 'none', outline: 'none', resize: 'none',
+                                padding: '16px 18px', fontSize: 13, lineHeight: 1.7,
+                                fontFamily: 'inherit', color: '#1e293b', background: 'white',
+                            }}
+                        />
+
+                        {/* Footer */}
                         <div style={{
-                            padding: '10px 24px', borderTop: '1px solid #f9fafb',
+                            padding: '10px 18px', borderTop: '1px solid #e5e7eb',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: 'white',
                         }}>
-                            <span style={{ fontSize: 12, color: '#9ca3af' }}>
+                            <span style={{ fontSize: 11, color: '#9ca3af' }}>
                                 {answers.length} caractere{answers.length !== 1 ? 's' : ''}
                             </span>
                             <button
                                 onClick={handleManualSubmit}
                                 disabled={submitting}
                                 style={{
-                                    background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                                    background: submitting ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
                                     color: 'white', border: 'none', borderRadius: 10,
-                                    padding: '10px 24px', fontSize: 13, fontWeight: 700,
+                                    padding: '9px 20px', fontSize: 13, fontWeight: 700,
                                     cursor: submitting ? 'not-allowed' : 'pointer',
                                     fontFamily: 'inherit',
-                                    boxShadow: '0 3px 10px rgba(91,188,180,0.30)',
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                    opacity: submitting ? 0.7 : 1,
+                                    boxShadow: submitting ? 'none' : '0 3px 10px rgba(91,188,180,0.30)',
+                                    display: 'flex', alignItems: 'center', gap: 7,
                                 }}
                             >
-                                <i className="fas fa-paper-plane"></i>
-                                Soumettre ma copie
+                                {submitting ? (
+                                    <><i className="fas fa-circle-notch fa-spin"></i> Correction...</>
+                                ) : (
+                                    <><i className="fas fa-paper-plane"></i> Soumettre ma copie</>
+                                )}
                             </button>
                         </div>
                     </div>

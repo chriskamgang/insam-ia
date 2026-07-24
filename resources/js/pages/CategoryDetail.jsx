@@ -339,8 +339,8 @@ export default function CategoryDetail() {
                                     <i className="fas fa-book-open"></i>
                                 </div>
                                 <div>
-                                    <h3 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>Cours par Unite d'Enseignement</h3>
-                                    <p style={{ fontSize: 13, color: '#9ca3af', margin: '2px 0 0' }}>Cliquez sur une UE pour voir ses cours</p>
+                                    <h3 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>Unites d'Enseignement</h3>
+                                    <p style={{ fontSize: 13, color: '#9ca3af', margin: '2px 0 0' }}>Cliquez sur une UE pour decouvrir ses cours</p>
                                 </div>
                             </div>
 
@@ -355,37 +355,51 @@ export default function CategoryDetail() {
                                     <p style={{ fontSize: 14 }}>Aucun cours disponible pour le moment.</p>
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div className="cd-grid3">
                                     {ues.map((ue) => {
                                         const isOpen = expandedUe === ue.id;
                                         const docs = ue.knowledge_documents || [];
                                         return (
-                                            <div key={ue.id} style={{ border: isOpen ? `1.5px solid ${TEAL}` : '1px solid #f0f0f0', borderRadius: 14, overflow: 'hidden', transition: 'all .2s' }}>
+                                            <div key={ue.id} style={{
+                                                background: 'white', borderRadius: 16, overflow: 'hidden',
+                                                border: isOpen ? `2px solid ${TEAL}` : '1px solid #f0f0f0',
+                                                boxShadow: isOpen ? `0 8px 24px rgba(91,188,180,0.12)` : '0 1px 4px rgba(0,0,0,0.04)',
+                                                transition: 'all .2s',
+                                            }}
+                                                onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.boxShadow = '0 6px 20px rgba(91,188,180,0.10)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+                                                onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'none'; } }}
+                                            >
+                                                {/* Color strip */}
+                                                <div style={{ height: 4, background: `linear-gradient(90deg, ${TEAL}, ${NAVY})` }} />
+
+                                                {/* Card body */}
                                                 <button
                                                     onClick={() => setExpandedUe(isOpen ? null : ue.id)}
                                                     style={{
-                                                        width: '100%', background: isOpen ? `${TEAL}08` : '#fafafa', border: 'none',
-                                                        padding: '16px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left',
+                                                        width: '100%', background: 'transparent', border: 'none',
+                                                        padding: '18px 20px', cursor: 'pointer', textAlign: 'left',
+                                                        display: 'flex', flexDirection: 'column', gap: 10,
                                                     }}
                                                 >
-                                                    <div style={{ width: 40, height: 40, borderRadius: 10, background: isOpen ? TEAL : '#e5e7eb', color: isOpen ? 'white' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, transition: 'all .2s' }}>
-                                                        <i className="fas fa-layer-group"></i>
-                                                    </div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{ue.nom}</div>
-                                                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                                                            {ue.code && <span>{ue.code} &bull; </span>}
-                                                            Semestre {ue.semestre} &bull; Coef. {ue.coefficient} &bull; {docs.length} cours
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+                                                        <div style={{ width: 42, height: 42, borderRadius: 12, background: isOpen ? TEAL : `${TEAL}15`, color: isOpen ? 'white' : TEAL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0, transition: 'all .2s' }}>
+                                                            <i className="fas fa-layer-group"></i>
                                                         </div>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, lineHeight: 1.3 }}>{ue.nom}</div>
+                                                        </div>
+                                                        <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}></i>
                                                     </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${TEAL}15`, color: TEAL }}>{docs.length}</span>
-                                                        <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 11, color: '#9ca3af' }}></i>
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                        {ue.code && <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f3f4f6', color: '#6b7280' }}>{ue.code}</span>}
+                                                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#eff6ff', color: '#3b82f6' }}>S{ue.semestre}</span>
+                                                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#f0fdf9', color: TEAL }}>Coef. {ue.coefficient}</span>
+                                                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: `${TEAL}15`, color: TEAL }}>{docs.length} cours</span>
                                                     </div>
                                                 </button>
 
                                                 {isOpen && docs.length > 0 && (
-                                                    <div style={{ padding: '8px 20px 16px', borderTop: '1px solid #f0f0f0' }}>
+                                                    <div style={{ padding: '0 16px 16px', borderTop: '1px solid #f0f0f0' }}>
                                                         {docs.map((doc) => {
                                                             const isAiOpen = aiPanel?.docId === doc.id;
                                                             const summaryKey = `${doc.id}_summary`;
@@ -394,55 +408,53 @@ export default function CategoryDetail() {
                                                             <div key={doc.id}>
                                                                 <div style={{
                                                                     display: 'flex', alignItems: 'center', gap: 12,
-                                                                    padding: '10px 14px', marginTop: 6, borderRadius: 10,
-                                                                    background: isAiOpen ? '#e8f8f5' : '#fafafa',
+                                                                    padding: '12px 14px', marginTop: 10, borderRadius: 12,
+                                                                    background: isAiOpen ? '#e8f8f5' : '#f8fafb',
+                                                                    border: '1px solid #f0f0f0',
                                                                     flexWrap: 'wrap',
                                                                 }}>
-                                                                    <div style={{ width: 32, height: 32, borderRadius: 8, background: `${typeColor(doc.type)}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                    <div style={{ width: 34, height: 34, borderRadius: 10, background: `${typeColor(doc.type)}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                                         <i className={typeIcon(doc.type)} style={{ fontSize: 14, color: typeColor(doc.type) }}></i>
                                                                     </div>
                                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                                         <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{doc.title}</div>
                                                                         <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', marginTop: 2 }}>{doc.type}</div>
                                                                     </div>
-                                                                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                                                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
                                                                         {doc.file_path && (
                                                                             <button onClick={() => setViewingDoc(viewingDoc === doc.id ? null : doc.id)}
                                                                                 style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: viewingDoc === doc.id ? NAVY : '#f3f4f6', color: viewingDoc === doc.id ? 'white' : '#6b7280', display: 'flex', alignItems: 'center', gap: 4, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                                                                                title="Lire le cours"
                                                                             >
                                                                                 <i className={`fas fa-${viewingDoc === doc.id ? 'times' : 'eye'}`} style={{ fontSize: 10 }}></i> {viewingDoc === doc.id ? 'Fermer' : 'Lire'}
                                                                             </button>
                                                                         )}
+                                                                        {doc.file_path && user && (
+                                                                            <button onClick={() => navigate(`/cours/${doc.id}/revision?title=${encodeURIComponent(doc.title)}&ue=${encodeURIComponent(ue.nom)}&file=${encodeURIComponent(doc.file_path || '')}&cat=${id}`)}
+                                                                                style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: `linear-gradient(135deg, ${TEAL}, #3da89e)`, color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: '0 2px 6px rgba(91,188,180,0.25)' }}
+                                                                            >
+                                                                                <i className="fas fa-magic" style={{ fontSize: 10 }}></i> Reviser avec IA
+                                                                            </button>
+                                                                        )}
                                                                         {user && viewingDoc === doc.id && (
-                                                                            <>
-                                                                                <button onClick={() => navigate(`/cours/${doc.id}/revision?title=${encodeURIComponent(doc.title)}&ue=${encodeURIComponent(ue.nom)}&file=${encodeURIComponent(doc.file_path || '')}&cat=${id}`)}
-                                                                                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: TEAL, color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                                                                                    title="Reviser avec l'IA"
-                                                                                >
-                                                                                    <i className="fas fa-magic" style={{ fontSize: 10 }}></i> Reviser avec IA
-                                                                                </button>
-                                                                                <button onClick={() => startAi(doc, ue, 'quiz')}
-                                                                                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: isAiOpen && aiPanel.mode === 'quiz' ? '#F5A623' : '#fff8ec', color: isAiOpen && aiPanel.mode === 'quiz' ? 'white' : '#F5A623', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                                                                                    title="Quiz IA de revision"
-                                                                                >
-                                                                                    <i className="fas fa-question-circle" style={{ fontSize: 10 }}></i> Quiz
-                                                                                </button>
-                                                                            </>
+                                                                            <button onClick={() => startAi(doc, ue, 'quiz')}
+                                                                                style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: isAiOpen && aiPanel.mode === 'quiz' ? '#F5A623' : '#fff8ec', color: isAiOpen && aiPanel.mode === 'quiz' ? 'white' : '#F5A623', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                                                                            >
+                                                                                <i className="fas fa-question-circle" style={{ fontSize: 10 }}></i> Quiz
+                                                                            </button>
                                                                         )}
                                                                     </div>
                                                                 </div>
 
                                                                 {/* Inline PDF viewer */}
                                                                 {viewingDoc === doc.id && doc.file_path && (
-                                                                    <div style={{ margin: '6px 0 10px', borderRadius: 12, overflow: 'hidden', border: `1.5px solid ${NAVY}`, background: '#f8f9fa' }}>
+                                                                    <div style={{ margin: '8px 0 10px', borderRadius: 12, overflow: 'hidden', border: `1.5px solid ${NAVY}`, background: '#f8f9fa' }}>
                                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: NAVY }}>
                                                                             <span style={{ fontSize: 12, fontWeight: 600, color: 'white' }}><i className="fas fa-book-reader" style={{ marginRight: 6 }}></i>{doc.title}</span>
                                                                             <button onClick={() => setViewingDoc(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 14 }}><i className="fas fa-times"></i></button>
                                                                         </div>
                                                                         <iframe
                                                                             src={`/storage/${doc.file_path}#toolbar=0&navpanes=0`}
-                                                                            style={{ width: '100%', height: 600, border: 'none' }}
+                                                                            style={{ width: '100%', height: 500, border: 'none' }}
                                                                             title={doc.title}
                                                                         />
                                                                     </div>
