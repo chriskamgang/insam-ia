@@ -5,6 +5,22 @@ import api from '../api';
 const TEAL = '#5BBCB4';
 const NAVY = '#1B2A4A';
 
+const communityCSS = `
+.comm-layout { display: flex; gap: 20px; height: calc(100vh - 200px); }
+.comm-sidebar { width: 260px; flex-shrink: 0; }
+.comm-chat { flex: 1; display: flex; flex-direction: column; }
+.comm-sidebar-toggle { display: none; }
+@media(max-width:768px) {
+  .comm-layout { flex-direction: column; height: auto; min-height: calc(100vh - 200px); }
+  .comm-sidebar { width: 100% !important; }
+  .comm-sidebar.comm-hidden { display: none !important; }
+  .comm-chat.comm-hidden { display: none !important; }
+  .comm-chat { min-height: 60vh; }
+  .comm-sidebar-toggle { display: flex; }
+  .comm-hero h1 { font-size: 20px !important; }
+}
+`;
+
 export default function Community() {
     const { user } = useAuth();
     const [channels, setChannels] = useState([]);
@@ -14,6 +30,7 @@ export default function Community() {
     const [sending, setSending] = useState(false);
     const [text, setText] = useState('');
     const [replyTo, setReplyTo] = useState(null);
+    const [showSidebar, setShowSidebar] = useState(true);
     const bottomRef = useRef(null);
     const pollRef = useRef(null);
 
@@ -95,8 +112,9 @@ export default function Community() {
 
     return (
         <div style={{ background: '#F8FAFB', minHeight: '100vh' }}>
+            <style>{communityCSS}</style>
             {/* Header */}
-            <div style={{ background: NAVY, padding: '24px 0' }}>
+            <div className="comm-hero" style={{ background: NAVY, padding: '24px 0' }}>
                 <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
                     <span style={{ color: TEAL, fontWeight: 700, fontSize: 12, letterSpacing: 1 }}>COMMUNAUTE</span>
                     <h1 style={{ fontSize: 26, fontWeight: 800, color: 'white', margin: '6px 0 0' }}>
@@ -109,10 +127,26 @@ export default function Community() {
                 </div>
             </div>
 
-            <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px 24px', display: 'flex', gap: 20, height: 'calc(100vh - 200px)' }}>
+            <div className="comm-layout" style={{ maxWidth: 1200, margin: '0 auto', padding: '20px 24px' }}>
+                {/* Mobile toggle */}
+                <button
+                    className="comm-sidebar-toggle"
+                    onClick={() => setShowSidebar(!showSidebar)}
+                    style={{
+                        alignItems: 'center', gap: 8,
+                        padding: '10px 16px', borderRadius: 10,
+                        background: 'white', border: '1px solid #f0f0f0',
+                        color: NAVY, fontSize: 13, fontWeight: 600,
+                        cursor: 'pointer', width: '100%', justifyContent: 'center',
+                    }}
+                >
+                    <i className={`fas fa-${showSidebar ? 'comments' : 'list'}`} style={{ marginRight: 6 }}></i>
+                    {showSidebar ? 'Voir le chat' : 'Voir les canaux'}
+                </button>
+
                 {/* Sidebar - Channels */}
-                <div style={{
-                    width: 260, flexShrink: 0, background: 'white',
+                <div className={`comm-sidebar${showSidebar ? '' : ' comm-hidden'}`} style={{
+                    background: 'white',
                     borderRadius: 16, border: '1px solid #f0f0f0',
                     padding: 16, overflow: 'auto',
                 }}>
@@ -123,7 +157,7 @@ export default function Community() {
                     {channels.map(ch => (
                         <button
                             key={ch.slug}
-                            onClick={() => setActiveChannel(ch.slug)}
+                            onClick={() => { setActiveChannel(ch.slug); setShowSidebar(false); }}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 10,
                                 width: '100%', padding: '10px 12px',
@@ -163,8 +197,7 @@ export default function Community() {
                 </div>
 
                 {/* Main chat area */}
-                <div style={{
-                    flex: 1, display: 'flex', flexDirection: 'column',
+                <div className={`comm-chat${showSidebar ? ' comm-hidden' : ''}`} style={{
                     background: 'white', borderRadius: 16, border: '1px solid #f0f0f0',
                     overflow: 'hidden',
                 }}>

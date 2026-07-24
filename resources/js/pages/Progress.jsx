@@ -12,6 +12,26 @@ const RED = '#EF4444';
 
 const W = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' };
 
+const progressCSS = `
+.prog-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.prog-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.prog-hero h1 { font-size: 30px; }
+.prog-tabs { display: flex; gap: 0; overflow-x: auto; }
+.prog-tabs button { padding: 16px 22px; white-space: nowrap; }
+@media(max-width:900px) {
+  .prog-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media(max-width:600px) {
+  .prog-stats { grid-template-columns: 1fr; }
+  .prog-grid2 { grid-template-columns: 1fr; }
+  .prog-hero h1 { font-size: 22px !important; }
+  .prog-hero { padding: 32px 0 36px !important; }
+  .prog-hero .prog-hero-flex { flex-direction: column; gap: 12px !important; }
+  .prog-hero .prog-icon { width: 44px !important; height: 44px !important; font-size: 20px !important; }
+  .prog-tabs button { padding: 12px 14px !important; font-size: 12px !important; }
+}
+`;
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function relativeDate(dateStr) {
@@ -280,7 +300,7 @@ function OverviewTab() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
             {/* Stats Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <div className="prog-stats">
                 <StatCard
                     icon="fas fa-clipboard-check"
                     label="Quiz realises"
@@ -350,7 +370,7 @@ function OverviewTab() {
             )}
 
             {/* Charts Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div className="prog-grid2" style={{ gap: 20 }}>
                 {/* Weekly Activity */}
                 <div style={{ background: 'white', borderRadius: 16, padding: '24px 22px', border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                     <h3 style={{ fontSize: 15, fontWeight: 800, color: NAVY, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -372,7 +392,7 @@ function OverviewTab() {
 
             {/* Strongest / Weakest */}
             {(strongest || weakest) && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                <div className="prog-grid2" style={{ gap: 20 }}>
                     {/* Strongest */}
                     {strongest && (
                         <div style={{
@@ -486,7 +506,7 @@ function CategoriesTab() {
     );
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div className="prog-grid2" style={{ gap: 20 }}>
             {categories.map((cat, idx) => {
                 const quizScore = cat.quiz_avg_score ?? cat.quiz_score ?? 0;
                 const simScore = cat.simulation_avg_score ?? cat.simulation_score ?? 0;
@@ -721,7 +741,7 @@ function AIAnalysisTab() {
                 </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div className="prog-grid2" style={{ gap: 20 }}>
                 {/* Points forts */}
                 {strengths.length > 0 && (
                     <div style={{
@@ -1021,12 +1041,13 @@ export default function Progress() {
 
     return (
         <div style={{ background: '#F8FAFB', minHeight: '100vh', paddingBottom: 60, fontFamily: 'inherit' }}>
+            <style>{progressCSS}</style>
 
             {/* ── HEADER ── */}
-            <section style={{ background: 'linear-gradient(135deg, #1B2A4A 0%, #243758 60%, #2d4470 100%)', padding: '48px 0 52px' }}>
+            <section className="prog-hero" style={{ background: 'linear-gradient(135deg, #1B2A4A 0%, #243758 60%, #2d4470 100%)', padding: '48px 0 52px' }}>
                 <div style={{ ...W }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                        <div style={{
+                    <div className="prog-hero-flex" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                        <div className="prog-icon" style={{
                             width: 56, height: 56, borderRadius: 16,
                             background: `${TEAL}30`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1039,7 +1060,7 @@ export default function Progress() {
                             <span style={{ color: TEAL, fontWeight: 700, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
                                 Suivi personnalise
                             </span>
-                            <h1 style={{ fontSize: 30, fontWeight: 800, color: 'white', margin: 0, lineHeight: 1.2 }}>
+                            <h1 style={{ fontWeight: 800, color: 'white', margin: 0, lineHeight: 1.2 }}>
                                 Rapports de Progression
                             </h1>
                             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, margin: '6px 0 0', maxWidth: 480 }}>
@@ -1053,7 +1074,7 @@ export default function Progress() {
             {/* ── TABS ── */}
             <div style={{ background: 'white', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                 <div style={{ ...W }}>
-                    <div style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
+                    <div className="prog-tabs">
                         {TABS.map(tab => {
                             const active = activeTab === tab.key;
                             return (

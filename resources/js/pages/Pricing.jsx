@@ -190,6 +190,20 @@ function SubscribeModal({ plan, onClose, onSuccess }) {
     );
 }
 
+const pricingCSS = `
+.pricing-hero h1 { font-size: 42px; }
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: stretch; }
+.pricing-faq { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding: 40px 40px; }
+@media(max-width:900px) {
+  .pricing-grid { grid-template-columns: 1fr 1fr; }
+}
+@media(max-width:600px) {
+  .pricing-hero h1 { font-size: 28px; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .pricing-faq { padding: 24px 20px; }
+}
+`;
+
 /* ── Main Page ── */
 export default function Pricing() {
     const { user } = useAuth();
@@ -252,9 +266,10 @@ export default function Pricing() {
     /* ── RENDER ── */
     return (
         <div style={{ background: '#F8FAFB', minHeight: '100vh', paddingBottom: 80 }}>
+            <style>{pricingCSS}</style>
 
             {/* ── HEADER ── */}
-            <section style={{
+            <section className="pricing-hero" style={{
                 background: 'linear-gradient(135deg, #5BBCB4 0%, #3da89f 50%, #2c9e96 100%)',
                 padding: '64px 0 72px',
                 textAlign: 'center',
@@ -268,7 +283,7 @@ export default function Pricing() {
                         ABONNEMENTS
                     </span>
                     <h1 style={{
-                        fontSize: 42, fontWeight: 900, color: 'white',
+                        fontWeight: 900, color: 'white',
                         margin: '0 0 16px', lineHeight: 1.15,
                         textShadow: '0 2px 12px rgba(27,42,74,0.15)',
                     }}>
@@ -305,12 +320,7 @@ export default function Pricing() {
                         <p style={{ fontSize: 15 }}>Aucune offre disponible pour le moment.</p>
                     </div>
                 ) : (
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${Math.min(plans.length, 3)}, 1fr)`,
-                        gap: 24,
-                        alignItems: 'stretch',
-                    }}>
+                    <div className="pricing-grid">
                         {plans.map((plan, idx) => {
                             const isCurrent = currentPlanId === plan.id;
                             const isPopular = idx === popularIndex && plans.length > 1;
@@ -707,10 +717,8 @@ export default function Pricing() {
             <section style={{ ...W, marginTop: 64 }}>
                 <div style={{
                     background: `linear-gradient(135deg, ${NAVY} 0%, #243758 100%)`,
-                    borderRadius: 20, padding: '40px 40px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    gap: 24, flexWrap: 'wrap',
-                }}>
+                    borderRadius: 20,
+                }} className="pricing-faq">
                     <div>
                         <h3 style={{ fontSize: 20, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>
                             Des questions sur nos offres ?
