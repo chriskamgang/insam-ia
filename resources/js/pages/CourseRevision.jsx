@@ -8,24 +8,76 @@ const NAVY = '#1B2A4A';
 
 function renderMd(md) {
     if (!md) return '';
-    return md
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/^#### (.+)$/gm, '<h4 style="font-size:14px;font-weight:700;color:#1B2A4A;margin:14px 0 6px;">$1</h4>')
-        .replace(/^### (.+)$/gm, '<h3 style="font-size:15px;font-weight:700;color:#1B2A4A;margin:16px 0 6px;">$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2 style="font-size:17px;font-weight:800;color:#1B2A4A;margin:20px 0 8px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;">$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1 style="font-size:19px;font-weight:800;color:#1B2A4A;margin:22px 0 10px;">$1</h1>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#1B2A4A;">$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/`([^`]+)`/g, '<code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;color:#e74c3c;">$1</code>')
-        .replace(/^[\-\*] (.+)$/gm, '<li style="margin:4px 0;">$1</li>')
-        .replace(/^\d+\. (.+)$/gm, '<li style="margin:4px 0;list-style-type:decimal;">$1</li>')
-        .replace(/(<li[^>]*>[\s\S]*?<\/li>\n?)+/g, m => {
-            const isOl = m.includes('list-style-type:decimal');
-            return `<${isOl ? 'ol' : 'ul'} style="margin:8px 0 8px 20px;">${m}</${isOl ? 'ol' : 'ul'}>`;
-        })
-        .replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;">')
-        .replace(/\n{2,}/g, '</p><p style="margin:0 0 8px;line-height:1.75;color:#374151;">')
-        .replace(/\n/g, '<br>');
+    // Process blocks first
+    let html = md;
+
+    // Code blocks ```...```
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<pre class="course-code"><code>${escaped.trim()}</code></pre>`;
+    });
+
+    // Tables: detect lines with |
+    html = html.replace(/((?:^\|.+\|$\n?)+)/gm, (block) => {
+        const rows = block.trim().split('\n').filter(r => r.trim());
+        if (rows.length < 2) return block;
+        // Check if second row is separator
+        const isSep = /^\|[\s\-:]+\|$/.test(rows[1]);
+        let tableHtml = '<table class="course-table"><thead><tr>';
+        const headerCells = rows[0].split('|').filter(c => c.trim() !== '');
+        headerCells.forEach(c => { tableHtml += `<th>${c.trim()}</th>`; });
+        tableHtml += '</tr></thead><tbody>';
+        const startRow = isSep ? 2 : 1;
+        for (let i = startRow; i < rows.length; i++) {
+            const cells = rows[i].split('|').filter(c => c.trim() !== '');
+            if (cells.length === 0) continue;
+            tableHtml += '<tr>';
+            cells.forEach(c => { tableHtml += `<td>${c.trim()}</td>`; });
+            tableHtml += '</tr>';
+        }
+        tableHtml += '</tbody></table>';
+        return tableHtml;
+    });
+
+    // Escape remaining HTML (but not our generated tags)
+    // We need to be careful - only escape outside of our generated HTML
+    // Instead, let's process line by line for non-block elements
+
+    // Headers
+    html = html.replace(/^#### (.+)$/gm, '<h4 class="course-h4">$1</h4>');
+    html = html.replace(/^### (.+)$/gm, '<h3 class="course-h3">$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2 class="course-h2">$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1 class="course-h1">$1</h1>');
+
+    // Horizontal rules
+    html = html.replace(/^---+$/gm, '<hr class="course-hr">');
+
+    // Bold and italic
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code class="course-inline-code">$1</code>');
+
+    // Links [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#5BBCB4;text-decoration:none;font-weight:600;">$1</a>');
+
+    // List items
+    html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/^\d+\. (.+)$/gm, '<li class="ol-item">$1</li>');
+
+    // Group consecutive li into ul/ol
+    html = html.replace(/((?:<li class="ol-item">[\s\S]*?<\/li>\s*)+)/g, m => `<ol class="course-ol">${m.replace(/ class="ol-item"/g, '')}</ol>`);
+    html = html.replace(/((?:<li>[\s\S]*?<\/li>\s*)+)/g, (m) => {
+        if (m.includes('<ol')) return m;
+        return `<ul class="course-ul">${m}</ul>`;
+    });
+
+    // Paragraphs
+    html = html.replace(/\n{2,}/g, '</p><p class="course-p">');
+    html = html.replace(/\n/g, '<br>');
+
+    return `<p class="course-p">${html}</p>`;
 }
 
 const revCSS = `
@@ -42,6 +94,70 @@ const revCSS = `
 @media(max-width:600px){
   .rev-left { height:45%; }
 }
+
+/* Document-style course rendering */
+.course-content { font-family: 'Georgia', 'Times New Roman', serif; color: #1a1a2e; }
+.course-content .course-p { margin: 0 0 12px; line-height: 1.85; font-size: 14.5px; color: #2d3748; }
+.course-content .course-h1 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 22px; font-weight: 800; color: ${NAVY}; margin: 36px 0 16px;
+  padding-bottom: 10px; border-bottom: 3px solid ${TEAL};
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.course-content .course-h2 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 18px; font-weight: 700; color: ${NAVY}; margin: 28px 0 12px;
+  padding-bottom: 6px; border-bottom: 1.5px solid #e2e8f0;
+  padding-left: 12px; border-left: 4px solid ${TEAL};
+}
+.course-content .course-h3 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15.5px; font-weight: 700; color: #2d4270; margin: 22px 0 8px;
+}
+.course-content .course-h4 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px; font-weight: 700; color: ${TEAL}; margin: 18px 0 6px;
+  font-style: italic;
+}
+.course-content strong { color: ${NAVY}; font-weight: 700; }
+.course-content em { color: #4a5568; }
+.course-content .course-hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+.course-content .course-ul, .course-content .course-ol {
+  margin: 10px 0 10px 24px; padding: 0;
+}
+.course-content .course-ul { list-style-type: disc; }
+.course-content .course-ol { list-style-type: decimal; }
+.course-content li {
+  margin: 6px 0; line-height: 1.75; font-size: 14px; color: #2d3748;
+  padding-left: 4px;
+}
+.course-content .course-inline-code {
+  background: #edf2f7; padding: 2px 7px; border-radius: 4px;
+  font-family: 'Courier New', monospace; font-size: 13px; color: #c53030;
+  border: 1px solid #e2e8f0;
+}
+.course-content .course-code {
+  background: #1a202c; color: #e2e8f0; padding: 16px 20px; border-radius: 10px;
+  overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 14px 0;
+  font-family: 'Courier New', monospace; border: 1px solid #2d3748;
+}
+.course-content .course-table {
+  width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+}
+.course-content .course-table th {
+  background: ${NAVY}; color: white; padding: 10px 14px; text-align: left;
+  font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
+  border: 1px solid #2d4270;
+}
+.course-content .course-table td {
+  padding: 9px 14px; border: 1px solid #e2e8f0; color: #2d3748; line-height: 1.5;
+}
+.course-content .course-table tr:nth-child(even) td { background: #f7fafc; }
+.course-content .course-table tr:hover td { background: #ebf8ff; }
+.course-content a { color: ${TEAL}; text-decoration: none; font-weight: 600; border-bottom: 1px dashed ${TEAL}; }
+.course-content a:hover { border-bottom-style: solid; }
 `;
 
 export default function CourseRevision() {
@@ -533,7 +649,7 @@ export default function CourseRevision() {
                                         <i className="fas fa-robot" style={{ marginRight: 4 }}></i>Genere par IA
                                     </span>
                                 </div>
-                                <div style={{ fontSize: 14, lineHeight: 2, color: '#374151' }}
+                                <div className="course-content"
                                     dangerouslySetInnerHTML={{ __html: renderMd(generatedCourse) }}
                                 />
                             </div>
@@ -551,7 +667,7 @@ export default function CourseRevision() {
                                         {ueName && <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>{ueName}</p>}
                                     </div>
                                 </div>
-                                <div style={{ fontSize: 14, lineHeight: 2, color: '#374151', whiteSpace: 'pre-wrap' }}
+                                <div className="course-content"
                                     dangerouslySetInnerHTML={{ __html: renderMd(courseContent) }}
                                 />
                             </div>
