@@ -428,14 +428,14 @@ export default function CategoryDetail() {
                                                                                 <i className={`fas fa-${viewingDoc === doc.id ? 'times' : 'eye'}`} style={{ fontSize: 10 }}></i> {viewingDoc === doc.id ? 'Fermer' : 'Lire'}
                                                                             </button>
                                                                         )}
-                                                                        {doc.file_path && user && (
+                                                                        {user && (
                                                                             <button onClick={() => navigate(`/cours/${doc.id}/revision?title=${encodeURIComponent(doc.title)}&ue=${encodeURIComponent(ue.nom)}&file=${encodeURIComponent(doc.file_path || '')}&cat=${id}`)}
                                                                                 style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: `linear-gradient(135deg, ${TEAL}, #3da89e)`, color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: '0 2px 6px rgba(91,188,180,0.25)' }}
                                                                             >
                                                                                 <i className="fas fa-magic" style={{ fontSize: 10 }}></i> Reviser avec IA
                                                                             </button>
                                                                         )}
-                                                                        {user && viewingDoc === doc.id && (
+                                                                        {user && (
                                                                             <button onClick={() => startAi(doc, ue, 'quiz')}
                                                                                 style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: isAiOpen && aiPanel.mode === 'quiz' ? '#F5A623' : '#fff8ec', color: isAiOpen && aiPanel.mode === 'quiz' ? 'white' : '#F5A623', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                                                                             >
