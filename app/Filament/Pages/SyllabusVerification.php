@@ -4,17 +4,13 @@ namespace App\Filament\Pages;
 
 use App\Models\Category;
 use App\Models\KnowledgeDocument;
+use App\Models\SyllabusVerification as SyllabusVerificationModel;
 use App\Services\AiService;
 use BackedEnum;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
 class SyllabusVerification extends Page implements HasForms
@@ -36,6 +32,7 @@ class SyllabusVerification extends Page implements HasForms
     public string $courseTitle = '';
     public string $result = '';
     public bool $loading = false;
+    public ?int $viewingHistoryId = null;
 
     public function getDocumentsProperty(): array
     {
@@ -44,6 +41,14 @@ class SyllabusVerification extends Page implements HasForms
         return KnowledgeDocument::where('category_id', $this->selectedCategory)
             ->pluck('title', 'id')
             ->toArray();
+    }
+
+    public function getHistoryProperty()
+    {
+        return SyllabusVerificationModel::with('category:id,name')
+            ->latest()
+            ->limit(20)
+            ->get();
     }
 
     public function updatedSelectedCategory(): void
@@ -64,6 +69,29 @@ class SyllabusVerification extends Page implements HasForms
         }
     }
 
+    public function loadHistory(int $id): void
+    {
+        $record = SyllabusVerificationModel::find($id);
+        if (!$record) return;
+
+        $this->courseTitle = $record->course_title;
+        $this->syllabus = $record->syllabus;
+        $this->support = $record->support;
+        $this->result = $record->result;
+        $this->selectedCategory = $record->category_id ? (string) $record->category_id : null;
+        $this->selectedDocument = $record->document_id ? (string) $record->document_id : null;
+        $this->viewingHistoryId = $id;
+    }
+
+    public function deleteHistory(int $id): void
+    {
+        SyllabusVerificationModel::where('id', $id)->delete();
+        if ($this->viewingHistoryId === $id) {
+            $this->reset(['result', 'viewingHistoryId']);
+        }
+        Notification::make()->title('Verification supprimee')->success()->send();
+    }
+
     public function verify(): void
     {
         if (strlen(trim($this->syllabus)) < 10) {
@@ -76,6 +104,7 @@ class SyllabusVerification extends Page implements HasForms
         }
 
         $this->loading = true;
+        $this->viewingHistoryId = null;
 
         $title = $this->courseTitle ?: 'ce cours';
 
@@ -112,6 +141,23 @@ PROMPT;
         $this->result = AiService::chat($systemPrompt, $userMessage, [], 8000);
         $this->loading = false;
 
-        Notification::make()->title('Analyse terminee')->success()->send();
+        // Extract score
+        $score = null;
+        if (preg_match('/(\d{1,3})\s*%/', $this->result, $m)) {
+            $score = (int) $m[1];
+        }
+
+        // Save to history
+        SyllabusVerificationModel::create([
+            'course_title' => $this->courseTitle ?: 'Sans titre',
+            'category_id' => $this->selectedCategory ?: null,
+            'document_id' => $this->selectedDocument ?: null,
+            'syllabus' => $this->syllabus,
+            'support' => $this->support,
+            'result' => $this->result,
+            'score' => $score,
+        ]);
+
+        Notification::make()->title('Analyse terminee et sauvegardee')->success()->send();
     }
 }
