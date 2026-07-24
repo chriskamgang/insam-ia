@@ -215,7 +215,7 @@ class SyllabusVerification extends Page implements HasForms
 
         $title = $this->courseTitle ?: 'ce cours';
 
-        $systemPrompt = "Tu es un expert en pedagogie universitaire et en conformite des programmes d'enseignement au Cameroun. Tu compares les syllabi ministeriels avec les supports de cours pour identifier les ecarts. Reponds en francais. Utilise le format Markdown avec des tableaux.";
+        $systemPrompt = "Tu es un expert en pedagogie universitaire et en conformite des programmes d'enseignement au Cameroun. Tu compares les syllabi ministeriels avec les supports de cours pour identifier les ecarts. Reponds en francais. Utilise le format Markdown avec des tableaux. IMPORTANT: Commence TOUJOURS ta reponse par le verdict et le score.";
 
         $userMessage = <<<PROMPT
 Compare le syllabus ministeriel avec le support de cours pour "{$title}" et identifie les ecarts.
@@ -226,23 +226,33 @@ Compare le syllabus ministeriel avec le support de cours pour "{$title}" et iden
 **SUPPORT DE COURS:**
 {$this->support}
 
-Fais une analyse detaillee avec:
+IMPORTANT: Commence ta reponse EXACTEMENT par ce format:
 
-1. **Tableau de conformite** - Pour chaque point/chapitre du syllabus, indique:
-   | Point du syllabus | Present dans le support | Niveau de couverture | Remarque |
-   Utilise des indicateurs: Complet, Partiel, Absent
+## VERDICT: [CONFORME / PARTIELLEMENT CONFORME / NON CONFORME]
+## Score de conformite: XX%
 
-2. **Points manquants** - Liste detaillee des points du syllabus qui ne sont PAS couverts dans le support de cours, avec leur importance
+Puis fais une analyse detaillee avec:
 
-3. **Points partiellement couverts** - Points presents mais insuffisamment developpes, avec ce qui manque specifiquement
+1. **Resume executif** - En 2-3 phrases, dis clairement si le support de cours couvre ou non le syllabus ministeriel. Sois direct: "Le support est conforme/non conforme car..."
 
-4. **Points supplementaires** - Elements dans le support qui ne sont pas dans le syllabus (bonus ou hors programme)
+2. **Tableau de conformite** - Pour chaque point/chapitre du syllabus:
+   | Point du syllabus | Statut | Couverture | Remarque |
+   Statut: ✅ Complet, ⚠️ Partiel, ❌ Absent
 
-5. **Score de conformite** - Pourcentage global de couverture du syllabus
+3. **Points manquants (❌)** - Points du syllabus NON couverts dans le support. Pour chaque point manquant, explique son importance.
 
-6. **Recommandations d'amelioration** - Actions concretes pour mettre le support en conformite avec le syllabus, classees par priorite
+4. **Points partiellement couverts (⚠️)** - Points presents mais insuffisamment developpes, avec ce qui manque.
 
-Sois precis et objectif dans ton analyse.
+5. **Points supplementaires** - Elements dans le support qui ne sont pas dans le syllabus (bonus ou hors programme)
+
+6. **Recommandations d'amelioration** - Actions concretes classees par priorite (URGENT / IMPORTANT / SOUHAITABLE) pour mettre le support en conformite.
+
+Criteres de verdict:
+- CONFORME: Score >= 80%, aucun point majeur manquant
+- PARTIELLEMENT CONFORME: Score entre 50% et 79%, quelques lacunes
+- NON CONFORME: Score < 50%, lacunes importantes
+
+Sois precis, objectif et direct dans ton analyse.
 PROMPT;
 
         $this->result = AiService::chat($systemPrompt, $userMessage, [], 8000);

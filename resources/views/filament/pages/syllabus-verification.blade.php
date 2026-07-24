@@ -117,8 +117,31 @@
 
         {{-- Result --}}
         @if($result)
+        @php
+            $isConforme = str_contains(strtoupper($result), 'VERDICT: CONFORME') && !str_contains(strtoupper($result), 'PARTIELLEMENT') && !str_contains(strtoupper($result), 'NON CONFORME');
+            $isPartiel = str_contains(strtoupper($result), 'PARTIELLEMENT CONFORME');
+            $isNonConforme = str_contains(strtoupper($result), 'NON CONFORME');
+            $verdictColor = $isConforme ? '#065f46' : ($isPartiel ? '#78350f' : '#7f1d1d');
+            $verdictBorder = $isConforme ? '#10b981' : ($isPartiel ? '#f59e0b' : '#ef4444');
+            $verdictIcon = $isConforme ? '✅' : ($isPartiel ? '⚠️' : '❌');
+            $verdictText = $isConforme ? 'CONFORME' : ($isPartiel ? 'PARTIELLEMENT CONFORME' : 'NON CONFORME');
+            // Extract score
+            preg_match('/(\d{1,3})\s*%/', $result, $scoreMatch);
+            $displayScore = $scoreMatch[1] ?? null;
+        @endphp
+
+        {{-- Verdict banner --}}
+        <div style="margin-top: 1.5rem; padding: 20px; border-radius: 12px; background: {{ $verdictColor }}; border: 2px solid {{ $verdictBorder }}; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 4px;">{{ $verdictIcon }}</div>
+            <div style="font-size: 1.4rem; font-weight: 800; color: white; letter-spacing: 1px;">{{ $verdictText }}</div>
+            @if($displayScore)
+            <div style="font-size: 2.5rem; font-weight: 900; color: white; margin-top: 4px;">{{ $displayScore }}%</div>
+            <div style="font-size: 0.85rem; color: rgba(255,255,255,0.7);">de couverture du syllabus</div>
+            @endif
+        </div>
+
         <div class="sv-result">
-            <div class="sv-title"><span>📊</span> Resultat de l'analyse</div>
+            <div class="sv-title"><span>📊</span> Resultat detaille de l'analyse</div>
             <div class="prose prose-invert prose-sm max-w-none">
                 {!! \Illuminate\Support\Str::markdown($result) !!}
             </div>
