@@ -101,6 +101,8 @@ function LibExamTaker({ exam, onClose }) {
     const [timer, setTimer] = useState(0);
     const [started, setStarted] = useState(false);
     const [showCorrection, setShowCorrection] = useState(false);
+    const [uploadedImages, setUploadedImages] = useState([]);
+    const imgInputRef = useRef(null);
 
     const fileUrl = exam.file_path
         ? `/api/exams/view-pdf?path=${encodeURIComponent(exam.file_path)}#toolbar=0&navpanes=0`
@@ -118,15 +120,36 @@ function LibExamTaker({ exam, onClose }) {
         return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
     };
 
+    const handleImgUpload = (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            if (uploadedImages.length >= 5) return;
+            const reader = new FileReader();
+            reader.onload = () => setUploadedImages(prev => prev.length < 5 ? [...prev, reader.result] : prev);
+            reader.readAsDataURL(file);
+        });
+        e.target.value = '';
+    };
+
     const handleSubmit = async () => {
-        if (!answers.trim()) return;
+        if (!answers.trim() && uploadedImages.length === 0) return;
         setSubmitting(true);
         try {
-            const res = await api.post('/api/exams/correct', {
-                exam_id: exam.id,
-                answers: answers,
-                time_spent: timer,
-            });
+            let res;
+            if (uploadedImages.length > 0) {
+                res = await api.post('/api/exams/correct-image', {
+                    exam_id: exam.id,
+                    images: uploadedImages,
+                    text_answers: answers || '',
+                    time_spent: timer,
+                });
+            } else {
+                res = await api.post('/api/exams/correct', {
+                    exam_id: exam.id,
+                    answers: answers,
+                    time_spent: timer,
+                });
+            }
             setCorrection(res.data?.correction || res.data);
             setStarted(false);
         } catch {
@@ -266,24 +289,46 @@ function LibExamTaker({ exam, onClose }) {
                                     <textarea
                                         value={answers}
                                         onChange={e => setAnswers(e.target.value)}
-                                        placeholder={"Exercice 1:\nQuestion a) ...\nReponse: ...\n\nExercice 2:\n..."}
+                                        placeholder={"Redigez vos reponses ici...\nOu prenez en photo votre copie papier avec le bouton Photo."}
                                         style={{
                                             flex: 1, border: 'none', outline: 'none', resize: 'none',
                                             padding: '16px 18px', fontSize: 13, lineHeight: 1.7,
                                             fontFamily: 'inherit', color: '#1e293b', background: 'white',
+                                            minHeight: uploadedImages.length > 0 ? 60 : undefined,
                                         }}
                                     />
+                                    {uploadedImages.length > 0 && (
+                                        <div style={{ padding: '8px 14px', background: '#f8fafb', borderTop: '1px solid #f0f0f0' }}>
+                                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                {uploadedImages.map((img, i) => (
+                                                    <div key={i} style={{ position: 'relative', width: 60, height: 60, borderRadius: 6, overflow: 'hidden', border: '2px solid #e5e7eb' }}>
+                                                        <img src={img} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        <button onClick={() => setUploadedImages(prev => prev.filter((_, j) => j !== i))}
+                                                            style={{ position: 'absolute', top: 1, right: 1, width: 16, height: 16, borderRadius: '50%', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', cursor: 'pointer', fontSize: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                        ><i className="fas fa-times"></i></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <p style={{ fontSize: 10, color: '#9ca3af', margin: '4px 0 0' }}>{uploadedImages.length}/5 photo(s)</p>
+                                        </div>
+                                    )}
                                     <div style={{
-                                        padding: '12px 18px', borderTop: '1px solid #e5e7eb',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white',
+                                        padding: '10px 14px', borderTop: '1px solid #e5e7eb',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', gap: 8,
                                     }}>
-                                        <span style={{ fontSize: 11, color: '#9ca3af' }}>{answers.length} caracteres</span>
-                                        <button onClick={handleSubmit} disabled={submitting || !answers.trim()} style={{
-                                            background: submitting || !answers.trim() ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <input ref={imgInputRef} type="file" accept="image/*" multiple capture="environment" onChange={handleImgUpload} style={{ display: 'none' }} />
+                                            <button onClick={() => imgInputRef.current?.click()} disabled={uploadedImages.length >= 5}
+                                                style={{ background: uploadedImages.length > 0 ? '#e8f8f5' : '#f3f4f6', color: uploadedImages.length > 0 ? TEAL : '#6b7280', border: uploadedImages.length > 0 ? `1.5px solid ${TEAL}` : '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}
+                                            ><i className="fas fa-camera"></i> Photo{uploadedImages.length > 0 && ` (${uploadedImages.length})`}</button>
+                                            <span style={{ fontSize: 10, color: '#9ca3af' }}>{answers.length > 0 ? `${answers.length} car.` : ''}</span>
+                                        </div>
+                                        <button onClick={handleSubmit} disabled={submitting || (!answers.trim() && uploadedImages.length === 0)} style={{
+                                            background: submitting || (!answers.trim() && uploadedImages.length === 0) ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
                                             color: 'white', border: 'none', borderRadius: 10,
-                                            padding: '9px 20px', fontSize: 13, fontWeight: 700,
-                                            cursor: submitting || !answers.trim() ? 'not-allowed' : 'pointer',
-                                            display: 'flex', alignItems: 'center', gap: 7,
+                                            padding: '8px 16px', fontSize: 12, fontWeight: 700,
+                                            cursor: submitting || (!answers.trim() && uploadedImages.length === 0) ? 'not-allowed' : 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: 6,
                                             boxShadow: submitting ? 'none' : '0 3px 10px rgba(91,188,180,0.3)',
                                         }}>
                                             {submitting ? <><i className="fas fa-circle-notch fa-spin"></i> Correction...</>

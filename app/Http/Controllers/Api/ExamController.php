@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
 use App\Models\KnowledgeDocument;
+use App\Models\Setting;
 use App\Services\AiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -398,6 +399,105 @@ Puis donne le detail de la correction.
 PROMPT;
 
         $correction = AiService::chat($systemPrompt, $userMessage, [], 4000);
+
+        // Extract note
+        $note = null;
+        if (preg_match('/NOTE\s*:\s*(\d+(?:\.\d+)?)\s*\/\s*20/i', $correction, $m)) {
+            $note = floatval($m[1]);
+        }
+
+        return response()->json([
+            'correction' => [
+                'note' => $note,
+                'details' => $correction,
+                'time_spent' => $request->time_spent,
+            ],
+        ]);
+    }
+
+    /**
+     * Correct student answers from uploaded image(s) using AI vision.
+     */
+    public function correctImage(Request $request)
+    {
+        $request->validate([
+            'exam_id' => 'required|exists:exams,id',
+            'images' => 'required|array|min:1|max:5',
+            'images.*' => 'required|string', // base64 data URLs
+            'time_spent' => 'nullable|integer',
+            'text_answers' => 'nullable|string',
+        ]);
+
+        $exam = Exam::with('category:id,name')->findOrFail($request->exam_id);
+
+        $systemPrompt = "Tu es un professeur universitaire expert en mathematiques et sciences. Tu corriges les copies d'etudiants a partir de photos de leurs reponses manuscrites. Tu sais lire l'ecriture manuscrite, les formules mathematiques, les schemas et graphiques. Tu donnes une note sur 20 et des explications detaillees. Reponds en francais. Utilise le format Markdown.";
+
+        $textPart = "Corrige les reponses manuscrites de cet etudiant pour l'epreuve suivante:\n\n";
+        $textPart .= "**Epreuve:** {$exam->title}\n";
+        $textPart .= "**Matiere:** {$exam->matiere}\n";
+        $textPart .= "**Filiere:** {$exam->filiere}\n";
+        $textPart .= "**Niveau:** {$exam->niveau}\n\n";
+
+        if ($request->text_answers) {
+            $textPart .= "**Notes supplementaires de l'etudiant:**\n{$request->text_answers}\n\n";
+        }
+
+        $textPart .= "Les images ci-dessus montrent les reponses manuscrites de l'etudiant.\n\n";
+        $textPart .= "Donne:\n";
+        $textPart .= "1. Une **note sur 20** (sois juste mais encourageant)\n";
+        $textPart .= "2. Pour chaque exercice/question visible: ce qui est **correct**, ce qui est **incorrect**, et la **bonne reponse** avec le detail du calcul\n";
+        $textPart .= "3. Des **conseils** pour s'ameliorer\n";
+        $textPart .= "4. Un **resume** des points forts et faibles\n\n";
+        $textPart .= "Commence ta reponse par la note au format: NOTE: XX/20\n";
+        $textPart .= "Puis donne le detail de la correction.";
+
+        // Build content array with all images + text
+        $apiKey = Setting::get('anthropic_api_key') ?: config('services.anthropic.api_key');
+        if (!$apiKey) {
+            return response()->json(['error' => 'Cle API non configuree.'], 500);
+        }
+
+        $model = Setting::get('claude_model', 'claude-haiku-4-5-20251001');
+
+        $contentParts = [];
+        foreach ($request->images as $dataUrl) {
+            // Parse data URL: data:image/jpeg;base64,/9j/4AAQ...
+            if (preg_match('/^data:(image\/\w+);base64,(.+)$/', $dataUrl, $m)) {
+                $contentParts[] = [
+                    'type' => 'image',
+                    'source' => [
+                        'type' => 'base64',
+                        'media_type' => $m[1],
+                        'data' => $m[2],
+                    ],
+                ];
+            }
+        }
+
+        $contentParts[] = [
+            'type' => 'text',
+            'text' => $textPart,
+        ];
+
+        $response = \Illuminate\Support\Facades\Http::timeout(120)->withHeaders([
+            'x-api-key' => $apiKey,
+            'anthropic-version' => '2023-06-01',
+        ])->post('https://api.anthropic.com/v1/messages', [
+            'model' => $model,
+            'max_tokens' => 4000,
+            'system' => $systemPrompt,
+            'messages' => [
+                ['role' => 'user', 'content' => $contentParts],
+            ],
+        ]);
+
+        if (!$response->successful()) {
+            return response()->json([
+                'error' => 'Erreur API: ' . ($response->json('error.message') ?? 'Erreur inconnue'),
+            ], 500);
+        }
+
+        $correction = $response->json('content.0.text') ?? 'Impossible d\'analyser les images.';
 
         // Extract note
         $note = null;

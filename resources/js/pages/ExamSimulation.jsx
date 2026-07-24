@@ -537,6 +537,8 @@ export default function ExamSimulation() {
     const [answers, setAnswers] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [autoSubmitted, setAutoSubmitted] = useState(false);
+    const [uploadedImages, setUploadedImages] = useState([]); // base64 data URLs
+    const imageInputRef = useRef(null);
     const timerRef = useRef(null);
 
     // Results view
@@ -662,10 +664,28 @@ export default function ExamSimulation() {
         }
     };
 
+    const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+        files.forEach(file => {
+            if (uploadedImages.length >= 5) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                setUploadedImages(prev => prev.length < 5 ? [...prev, reader.result] : prev);
+            };
+            reader.readAsDataURL(file);
+        });
+        e.target.value = '';
+    };
+
+    const removeImage = (idx) => {
+        setUploadedImages(prev => prev.filter((_, i) => i !== idx));
+    };
+
     const handleManualSubmit = async () => {
         if (submitting || !activeSimulation) return;
-        if (!answers.trim()) {
-            setError('Veuillez rediger vos reponses avant de soumettre.');
+        if (!answers.trim() && uploadedImages.length === 0) {
+            setError('Veuillez rediger vos reponses ou ajouter des photos de votre copie.');
             return;
         }
         setError(null);
@@ -673,15 +693,39 @@ export default function ExamSimulation() {
         setView('evaluating');
         setSubmitting(true);
         try {
-            const { data } = await api.post(`/api/exam-simulations/${activeSimulation.id}/submit`, {
-                answers: answers,
-            });
+            let data;
+            if (uploadedImages.length > 0) {
+                // Use image-based correction
+                const exam = activeSimulation.exam || activeSimulation;
+                const res = await api.post('/api/exams/correct-image', {
+                    exam_id: exam.id,
+                    images: uploadedImages,
+                    text_answers: answers || '',
+                    time_spent: (activeSimulation.duration_minutes * 60) - secondsLeft,
+                });
+                // Also submit to simulation endpoint for history
+                try {
+                    await api.post(`/api/exam-simulations/${activeSimulation.id}/submit`, {
+                        answers: '[Reponses soumises par photo] ' + (answers || ''),
+                    });
+                } catch {}
+                data = {
+                    score: res.data.correction?.note ? (res.data.correction.note / 20) * 100 : null,
+                    ai_feedback: res.data.correction?.details || '',
+                    exam: exam,
+                };
+            } else {
+                const res = await api.post(`/api/exam-simulations/${activeSimulation.id}/submit`, {
+                    answers: answers,
+                });
+                data = res.data;
+            }
             setCurrentResult(data);
             fetchSimulations();
             fetchStats();
             setView('results');
         } catch (err) {
-            setError(err.response?.data?.message || 'Erreur lors de la soumission.');
+            setError(err.response?.data?.message || err.response?.data?.error || 'Erreur lors de la soumission.');
             setView('simulation');
         } finally {
             setSubmitting(false);
@@ -883,40 +927,88 @@ export default function ExamSimulation() {
                         <textarea
                             value={answers}
                             onChange={e => setAnswers(e.target.value)}
-                            placeholder={"Exercice 1:\nQuestion a) ...\nReponse: ...\n\nQuestion b) ...\nReponse: ...\n\nExercice 2:\n..."}
+                            placeholder={"Redigez vos reponses ici...\nOu utilisez le bouton photo ci-dessous pour envoyer une photo de votre copie papier."}
                             style={{
                                 flex: 1, border: 'none', outline: 'none', resize: 'none',
                                 padding: '16px 18px', fontSize: 13, lineHeight: 1.7,
                                 fontFamily: 'inherit', color: '#1e293b', background: 'white',
+                                minHeight: uploadedImages.length > 0 ? 80 : undefined,
                             }}
                         />
 
+                        {/* Image upload section */}
+                        {uploadedImages.length > 0 && (
+                            <div style={{ padding: '8px 14px', background: '#f8fafb', borderTop: '1px solid #f0f0f0' }}>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    {uploadedImages.map((img, i) => (
+                                        <div key={i} style={{ position: 'relative', width: 70, height: 70, borderRadius: 8, overflow: 'hidden', border: '2px solid #e5e7eb' }}>
+                                            <img src={img} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <button onClick={() => removeImage(i)}
+                                                style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', cursor: 'pointer', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            >
+                                                <i className="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p style={{ fontSize: 10, color: '#9ca3af', margin: '6px 0 0' }}>
+                                    {uploadedImages.length}/5 photo{uploadedImages.length > 1 ? 's' : ''} — L'IA analysera vos reponses manuscrites
+                                </p>
+                            </div>
+                        )}
+
                         {/* Footer */}
                         <div style={{
-                            padding: '10px 18px', borderTop: '1px solid #e5e7eb',
+                            padding: '10px 14px', borderTop: '1px solid #e5e7eb',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            background: 'white',
+                            background: 'white', gap: 8,
                         }}>
-                            <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                                {answers.length} caractere{answers.length !== 1 ? 's' : ''}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <input
+                                    ref={imageInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    capture="environment"
+                                    onChange={handleImageUpload}
+                                    style={{ display: 'none' }}
+                                />
+                                <button
+                                    onClick={() => imageInputRef.current?.click()}
+                                    disabled={uploadedImages.length >= 5}
+                                    style={{
+                                        background: uploadedImages.length > 0 ? '#e8f8f5' : '#f3f4f6',
+                                        color: uploadedImages.length > 0 ? TEAL : '#6b7280',
+                                        border: uploadedImages.length > 0 ? `1.5px solid ${TEAL}` : '1.5px solid #e5e7eb',
+                                        borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600,
+                                        cursor: uploadedImages.length >= 5 ? 'not-allowed' : 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <i className="fas fa-camera"></i> Photo
+                                    {uploadedImages.length > 0 && <span style={{ fontSize: 10 }}>({uploadedImages.length})</span>}
+                                </button>
+                                <span style={{ fontSize: 10, color: '#9ca3af' }}>
+                                    {answers.length > 0 ? `${answers.length} car.` : ''}
+                                </span>
+                            </div>
                             <button
                                 onClick={handleManualSubmit}
                                 disabled={submitting}
                                 style={{
                                     background: submitting ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
                                     color: 'white', border: 'none', borderRadius: 10,
-                                    padding: '9px 20px', fontSize: 13, fontWeight: 700,
+                                    padding: '9px 16px', fontSize: 12, fontWeight: 700,
                                     cursor: submitting ? 'not-allowed' : 'pointer',
                                     fontFamily: 'inherit',
                                     boxShadow: submitting ? 'none' : '0 3px 10px rgba(91,188,180,0.30)',
-                                    display: 'flex', alignItems: 'center', gap: 7,
+                                    display: 'flex', alignItems: 'center', gap: 6,
                                 }}
                             >
                                 {submitting ? (
                                     <><i className="fas fa-circle-notch fa-spin"></i> Correction...</>
                                 ) : (
-                                    <><i className="fas fa-paper-plane"></i> Soumettre ma copie</>
+                                    <><i className="fas fa-paper-plane"></i> Soumettre</>
                                 )}
                             </button>
                         </div>
