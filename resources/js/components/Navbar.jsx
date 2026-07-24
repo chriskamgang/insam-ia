@@ -16,7 +16,6 @@ const TOOLS = [
     { to: '/revision', icon: 'fas fa-clipboard-list', label: 'Programme de revision' },
     { to: '/planification', icon: 'fas fa-calendar-alt', label: 'Planification' },
     { to: '/bibliotheque', icon: 'fas fa-book', label: 'Bibliotheque' },
-    { to: '/verification', icon: 'fas fa-check-double', label: 'Verification' },
     { to: '/communaute', icon: 'fas fa-comments', label: 'Forum Communautaire' },
 ];
 
