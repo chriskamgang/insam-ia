@@ -58,6 +58,8 @@ export default function CourseRevision() {
 
     const [document, setDocument] = useState(null);
     const [docLoading, setDocLoading] = useState(true);
+    const [generatedCourse, setGeneratedCourse] = useState(null);
+    const [courseGenerating, setCourseGenerating] = useState(false);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -80,11 +82,32 @@ export default function CourseRevision() {
         setDocLoading(true);
         api.get(`/api/public/documents/${docId}`)
             .then(res => {
-                setDocument(res.data.document || res.data.data || res.data);
+                const doc = res.data.document || res.data.data || res.data;
+                setDocument(doc);
+                // Auto-generate full course from syllabus if no PDF
+                if (doc && !doc.file_path && doc.content) {
+                    generateFullCourse(doc);
+                }
             })
             .catch(() => {})
             .finally(() => setDocLoading(false));
     }, [docId]);
+
+    const generateFullCourse = async (doc) => {
+        setCourseGenerating(true);
+        try {
+            const res = await api.post('/api/exams/summarize-course', {
+                course_title: doc.title || title,
+                course_content: doc.content || '',
+                filiere: ueName,
+            });
+            setGeneratedCourse(res.data.summary || '');
+        } catch {
+            setGeneratedCourse(null);
+        } finally {
+            setCourseGenerating(false);
+        }
+    };
 
     // Auto-scroll chat
     useEffect(() => {
@@ -214,15 +237,15 @@ export default function CourseRevision() {
                     {ueName && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{ueName}</span>}
                 </div>
                 <div className="rev-header-btns" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <button onClick={generateSummary} disabled={summaryLoading}
+                    <button onClick={() => { if (document) generateFullCourse(document); }} disabled={courseGenerating}
                         style={{
                             fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
-                            background: summaryLoading ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
+                            background: courseGenerating ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
                             color: 'white', border: 'none',
-                            cursor: summaryLoading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                            cursor: courseGenerating ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
                         }}
                     >
-                        <i className={summaryLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-file-alt'} style={{ fontSize: 10 }}></i> Resume
+                        <i className={courseGenerating ? 'fas fa-circle-notch fa-spin' : 'fas fa-redo'} style={{ fontSize: 10 }}></i> Regenerer
                     </button>
                     <button onClick={generateExercises} disabled={exerciseLoading}
                         style={{
@@ -482,15 +505,41 @@ export default function CourseRevision() {
                             style={{ flex: 1, border: 'none', background: 'white' }}
                             title={document?.title || title}
                         />
-                    ) : docLoading ? (
+                    ) : docLoading || courseGenerating ? (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ width: 40, height: 40, border: '3px solid #e5e7eb', borderTopColor: TEAL, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }}></div>
-                                <p style={{ fontSize: 13, color: '#9ca3af' }}>Chargement du cours...</p>
+                            <div style={{ textAlign: 'center', maxWidth: 400 }}>
+                                <div style={{ width: 50, height: 50, border: '3px solid #e5e7eb', borderTopColor: TEAL, borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.8s linear infinite' }}></div>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, margin: '0 0 6px' }}>{courseGenerating ? 'Generation du cours...' : 'Chargement...'}</h3>
+                                {courseGenerating && (
+                                    <p style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: 0 }}>
+                                        L'IA genere le cours complet a partir du syllabus. Cela peut prendre quelques secondes...
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    ) : generatedCourse ? (
+                        /* AI-generated full course */
+                        <div style={{ flex: 1, overflowY: 'auto', background: 'white' }}>
+                            <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 40px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottom: `2px solid ${TEAL}30` }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: `${TEAL}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: TEAL, fontSize: 20, flexShrink: 0 }}>
+                                        <i className="fas fa-book-open"></i>
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{document?.title || title}</h2>
+                                        {ueName && <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>{ueName}</p>}
+                                    </div>
+                                    <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#e8f8f5', color: TEAL }}>
+                                        <i className="fas fa-robot" style={{ marginRight: 4 }}></i>Genere par IA
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: 14, lineHeight: 2, color: '#374151' }}
+                                    dangerouslySetInnerHTML={{ __html: renderMd(generatedCourse) }}
+                                />
                             </div>
                         </div>
                     ) : courseContent ? (
-                        /* Text course content */
+                        /* Raw syllabus fallback */
                         <div style={{ flex: 1, overflowY: 'auto', background: 'white' }}>
                             <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 40px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottom: `2px solid ${TEAL}30` }}>
