@@ -1,474 +1,363 @@
 import { useAuth } from '../context/AuthContext';
-import { useLang } from '../context/LangContext';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../api';
 
-const W = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' };
-
 const TEAL = '#5BBCB4';
 const NAVY = '#1B2A4A';
+const W = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' };
+const norm = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-const dashCSS = `
-.dash-stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
-.dash-stat-item { display:flex; align-items:center; gap:16px; padding:24px 28px; }
-.dash-main-grid { display:grid; grid-template-columns:1fr 340px; gap:24px; align-items:start; }
-.dash-hero-flex { display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap; }
-.dash-hero-title { font-size:34px; }
-.dash-stat-val { font-size:26px; }
-
+const css = `
+.db-grid { display:grid; grid-template-columns:1fr 320px; gap:24px; align-items:start; }
+.db-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+.db-quick { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+.db-courses { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
 @media(max-width:1024px){
-  .dash-main-grid { grid-template-columns:1fr 280px; }
-  .dash-stats-grid { grid-template-columns:repeat(2,1fr); }
-  .dash-stat-item { border-right:none!important; border-bottom:1px solid #f3f4f6; }
+  .db-grid { grid-template-columns:1fr 280px; }
+  .db-stats { grid-template-columns:repeat(2,1fr); }
 }
 @media(max-width:768px){
-  .dash-main-grid { grid-template-columns:1fr; }
-  .dash-stats-grid { grid-template-columns:repeat(2,1fr); }
-  .dash-stat-item { padding:16px 20px; }
-  .dash-stat-val { font-size:22px; }
-  .dash-hero-title { font-size:26px; }
-  .dash-hero-flex { flex-direction:column; align-items:flex-start; }
+  .db-grid { grid-template-columns:1fr; }
+  .db-stats { grid-template-columns:repeat(2,1fr); }
+  .db-quick { grid-template-columns:repeat(2,1fr); }
+  .db-courses { grid-template-columns:1fr; }
 }
 @media(max-width:480px){
-  .dash-stats-grid { grid-template-columns:1fr; }
-  .dash-stat-item { border-right:none!important; border-bottom:1px solid #f3f4f6; }
-  .dash-hero-title { font-size:22px; }
+  .db-stats { grid-template-columns:1fr; }
+  .db-quick { grid-template-columns:1fr; }
 }
 `;
 
-const norm = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
 export default function Dashboard() {
     const { user } = useAuth();
-    const { t } = useLang();
-    const [recentVideos, setRecentVideos] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [loadingVideos, setLoadingVideos] = useState(true);
-    const [loadingFormations, setLoadingFormations] = useState(true);
-    const [watchHistory, setWatchHistory] = useState([]);
-    const [ueProgress, setUeProgress] = useState([]);
-    const [loadingProgress, setLoadingProgress] = useState(true);
     const [statsData, setStatsData] = useState(null);
+    const [myCourses, setMyCourses] = useState([]);
+    const [loadingCourses, setLoadingCourses] = useState(true);
+
+    const firstName = user?.name?.split(' ')[0] || 'Etudiant';
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon apres-midi' : 'Bonsoir';
 
     useEffect(() => {
-        api.get('/api/public/recent-videos')
-            .then(r => setRecentVideos(r.data.data || []))
-            .catch(() => {})
-            .finally(() => setLoadingVideos(false));
         api.get('/api/public/categories')
-            .then(r => {
-                const all = r.data.data || [];
-                // Prioritize categories matching user's filiere
-                if (user?.filiere) {
-                    const f = user.filiere.toLowerCase();
-                    const matching = all.filter(c => norm(c.name).includes(norm(f)) || norm(f).includes(norm(c.name)));
-                    const rest = all.filter(c => !matching.includes(c));
-                    setCategories([...matching, ...rest]);
-                } else {
-                    setCategories(all);
-                }
-            })
+            .then(r => setCategories(r.data.data || []))
             .catch(() => {});
-        // Load watch history from localStorage
-        const history = JSON.parse(localStorage.getItem('insam_watch_history') || '[]');
-        setWatchHistory(history.slice(0, 5));
-        setLoadingFormations(false);
-        // Load UE progression data
-        api.get('/api/course-progress/ue')
-            .then(r => setUeProgress(r.data?.subjects || []))
-            .catch(() => {})
-            .finally(() => setLoadingProgress(false));
-        // Load real stats
         api.get('/api/progress/overview')
             .then(r => setStatsData(r.data?.data || r.data || null))
             .catch(() => {});
     }, []);
 
-    const firstName = user?.name?.split(' ')[0] || 'Etudiant';
+    // Load courses for user's specialty
+    useEffect(() => {
+        if (!categories.length || !user?.filiere) { setLoadingCourses(false); return; }
+        const myCat = categories.find(c => norm(c.name).includes(norm(user.filiere)) || norm(user.filiere).includes(norm(c.name)));
+        if (myCat) {
+            api.get(`/api/public/categories/${myCat.id}/cours`)
+                .then(r => setMyCourses(r.data.ues || []))
+                .catch(() => {})
+                .finally(() => setLoadingCourses(false));
+        } else {
+            setLoadingCourses(false);
+        }
+    }, [categories, user?.filiere]);
+
+    const myCat = user?.filiere ? categories.find(c => norm(c.name).includes(norm(user.filiere)) || norm(user.filiere).includes(norm(c.name))) : null;
 
     const stats = [
-        { icon: 'fas fa-clipboard-check', label: 'Quiz completes', value: statsData?.total_quizzes || '0', sub: 'evaluations', color: TEAL, bg: '#e8f8f5' },
-        { icon: 'fas fa-book-reader',     label: 'Cours suivis', value: statsData?.total_courses || '0', sub: 'cours lus', color: '#F5A623', bg: '#fff8ec' },
-        { icon: 'fas fa-file-alt',        label: 'Sujets consultes', value: statsData?.total_exams || '0', sub: 'sujets d\'examen', color: '#E74C3C', bg: '#fef2f2' },
-        { icon: 'fas fa-trophy',          label: 'Score moyen', value: statsData?.avg_score ? `${Math.round(statsData.avg_score)}%` : '0%', sub: 'aux evaluations', color: NAVY, bg: '#f0f4ff' },
+        { icon: 'fas fa-book-open', value: myCourses.reduce((s, ue) => s + (ue.knowledge_documents?.length || 0), 0), label: 'Cours disponibles', color: TEAL, bg: '#e8f8f5' },
+        { icon: 'fas fa-layer-group', value: myCourses.length, label: 'Unites d\'enseignement', color: '#8B5CF6', bg: '#f5f3ff' },
+        { icon: 'fas fa-clipboard-check', value: statsData?.total_quizzes || 0, label: 'Quiz completes', color: '#F5A623', bg: '#fff8ec' },
+        { icon: 'fas fa-trophy', value: statsData?.avg_score ? `${Math.round(statsData.avg_score)}%` : '—', label: 'Score moyen', color: '#E74C3C', bg: '#fef2f2' },
     ];
 
-    const quickLinks = [
-        { icon: 'fas fa-robot',           label: 'Assistant IA',       sub: 'Posez vos questions 24h/7', to: '/assistant',   color: TEAL,      bg: '#e8f8f5' },
-        { icon: 'fas fa-clipboard-check', label: 'Evaluations',        sub: 'Quiz interactifs',          to: '/evaluations', color: '#F5A623', bg: '#fff8ec' },
-        { icon: 'fas fa-book',             label: 'Bibliotheque',        sub: 'Sujets, epreuves, corrections',   to: '/bibliotheque', color: '#8B5CF6', bg: '#f5f3ff' },
-        { icon: 'fas fa-comments',          label: 'Communaute',          sub: 'Chat entre etudiants',      to: '/communaute',  color: '#10B981', bg: '#ecfdf5' },
-        { icon: 'fas fa-graduation-cap',  label: 'Formations',         sub: 'Toutes les specialites',       to: '/formations',  color: NAVY,      bg: '#f0f4ff' },
+    const quickActions = [
+        { icon: 'fas fa-robot', label: 'Assistant IA', to: '/assistant', color: TEAL, bg: 'linear-gradient(135deg, #e8f8f5, #d1f2ed)' },
+        { icon: 'fas fa-file-alt', label: 'Epreuves', to: '/bibliotheque', color: '#8B5CF6', bg: 'linear-gradient(135deg, #f5f3ff, #ede9fe)' },
+        { icon: 'fas fa-clipboard-check', label: 'Evaluations', to: '/evaluations', color: '#F5A623', bg: 'linear-gradient(135deg, #fff8ec, #fef3c7)' },
+        { icon: 'fas fa-comments', label: 'Communaute', to: '/communaute', color: '#10B981', bg: 'linear-gradient(135deg, #ecfdf5, #d1fae5)' },
+        { icon: 'fas fa-graduation-cap', label: 'Formations', to: '/formations', color: NAVY, bg: 'linear-gradient(135deg, #f0f4ff, #e0e7ff)' },
+        { icon: 'fas fa-chart-line', label: 'Progression', to: '/progression', color: '#E74C3C', bg: 'linear-gradient(135deg, #fef2f2, #fee2e2)' },
     ];
 
     return (
         <div style={{ background: '#F8FAFB', minHeight: '100vh', paddingBottom: 60 }}>
-            <style>{dashCSS}</style>
+            <style>{css}</style>
 
-            {/* ── HERO WELCOME BANNER ── */}
-            <section style={{ background: 'linear-gradient(135deg, #1B2A4A 0%, #243758 60%, #2d4470 100%)', padding: '48px 0 52px' }}>
-                <div className="dash-hero-flex" style={{ ...W }}>
+            {/* Hero */}
+            <section style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #243758 60%, #2d4470 100%)`, padding: '40px 0 44px' }}>
+                <div style={{ ...W, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
                     <div>
-                        <span style={{ color: TEAL, fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>TABLEAU DE BORD</span>
-                        <h1 className="dash-hero-title" style={{ fontWeight: 800, color: 'white', margin: '10px 0 8px', lineHeight: 1.2 }}>
-                            Bon retour, <span style={{ color: TEAL }}>{firstName}</span> !
+                        <p style={{ color: TEAL, fontWeight: 700, fontSize: 13, letterSpacing: 1, margin: '0 0 8px' }}>TABLEAU DE BORD</p>
+                        <h1 style={{ fontSize: 30, fontWeight: 800, color: 'white', margin: '0 0 6px', lineHeight: 1.2 }}>
+                            {greeting}, <span style={{ color: TEAL }}>{firstName}</span> !
                         </h1>
-                        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 15, maxWidth: 480 }}>
-                            Pret pour votre prochaine lecon ? Continuez votre apprentissage la ou vous vous etes arrete.
+                        <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14, margin: 0 }}>
+                            {user?.filiere || 'Bienvenue sur votre espace etudiant'}
+                            {user?.niveau ? ` · ${user.niveau}` : ''}
                         </p>
                     </div>
-
                     <Link to="/assistant" style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        background: TEAL, color: 'white',
-                        padding: '14px 26px', borderRadius: 50,
-                        fontWeight: 700, textDecoration: 'none', fontSize: 14,
-                        boxShadow: '0 4px 16px rgba(91,188,180,0.35)',
-                        transition: 'all .2s',
-                    }}
-                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                    >
-                        <i className="fas fa-robot"></i>
-                        Ouvrir l'Assistant IA
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        background: TEAL, color: 'white', padding: '12px 22px',
+                        borderRadius: 12, fontWeight: 700, fontSize: 13,
+                        textDecoration: 'none', boxShadow: '0 4px 14px rgba(91,188,180,0.35)',
+                    }}>
+                        <i className="fas fa-robot"></i> Assistant IA
                     </Link>
                 </div>
             </section>
 
-            {/* ── STATS STRIP ── */}
-            <section style={{ background: 'white', borderBottom: '1px solid #f0f0f0' }}>
-                <div className="dash-stats-grid" style={{ ...W }}>
+            <div style={{ ...W, marginTop: -20 }}>
+
+                {/* Stats */}
+                <div className="db-stats" style={{ marginBottom: 28 }}>
                     {stats.map((s, i) => (
-                        <div key={i} className="dash-stat-item" style={{
-                            borderRight: i < stats.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        <div key={i} style={{
+                            background: 'white', borderRadius: 14, padding: '20px 18px',
+                            border: '1px solid #f0f0f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                            display: 'flex', alignItems: 'center', gap: 14,
                         }}>
                             <div style={{
-                                width: 50, height: 50, borderRadius: 14,
-                                background: s.bg,
+                                width: 46, height: 46, borderRadius: 12, background: s.bg,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 20, color: s.color, flexShrink: 0,
+                                fontSize: 18, color: s.color, flexShrink: 0,
                             }}>
                                 <i className={s.icon}></i>
                             </div>
                             <div>
-                                <div className="dash-stat-val" style={{ fontWeight: 800, color: NAVY, lineHeight: 1 }}>{s.value}</div>
-                                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>{s.sub}</div>
+                                <div style={{ fontSize: 24, fontWeight: 800, color: NAVY, lineHeight: 1 }}>{s.value}</div>
+                                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{s.label}</div>
                             </div>
                         </div>
                     ))}
                 </div>
-            </section>
 
-            <div style={{ ...W, marginTop: 36 }}>
+                {/* Main grid */}
+                <div className="db-grid">
 
-                {/* ── QUICK LINKS ── */}
-                <div style={{ marginBottom: 40 }}>
-                    <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, marginBottom: 18 }}>
-                        <i className="fas fa-bolt" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
-                        Acces rapide
-                    </h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-                        {quickLinks.map((lk, i) => (
-                            <Link key={i} to={lk.to} style={{
-                                background: 'white', borderRadius: 16,
-                                padding: '22px 20px',
-                                textDecoration: 'none',
-                                border: '1px solid #f0f0f0',
-                                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                                display: 'flex', alignItems: 'center', gap: 14,
-                                transition: 'all .2s',
-                            }}
-                                onMouseEnter={e => {
-                                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(91,188,180,0.12)';
-                                    e.currentTarget.style.borderColor = TEAL;
-                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                }}
-                                onMouseLeave={e => {
-                                    e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)';
-                                    e.currentTarget.style.borderColor = '#f0f0f0';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                }}
-                            >
-                                <div style={{
-                                    width: 46, height: 46, borderRadius: 12,
-                                    background: lk.bg,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 20, color: lk.color, flexShrink: 0,
-                                }}>
-                                    <i className={lk.icon}></i>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{lk.label}</div>
-                                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{lk.sub}</div>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-
-                {/* ── MAIN CONTENT: Recent Videos + Progress ── */}
-                <div className="dash-main-grid">
-
-                    {/* Recent Videos */}
+                    {/* Left column */}
                     <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                            <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>
-                                <i className="fas fa-play-circle" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
-                                Derniers cours
-                            </h2>
-                            <Link to="/formations" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-                                Voir tout &rarr;
-                            </Link>
+                        {/* Quick actions */}
+                        <h2 style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 14 }}>
+                            <i className="fas fa-bolt" style={{ color: '#F5A623', marginRight: 8, fontSize: 14 }}></i>
+                            Acces rapide
+                        </h2>
+                        <div className="db-quick" style={{ marginBottom: 28 }}>
+                            {quickActions.map((a, i) => (
+                                <Link key={i} to={a.to} style={{
+                                    background: a.bg, borderRadius: 14, padding: '18px 16px',
+                                    textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12,
+                                    border: '1px solid transparent', transition: 'all .2s',
+                                }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                >
+                                    <div style={{
+                                        width: 38, height: 38, borderRadius: 10,
+                                        background: 'white', boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: 16, color: a.color, flexShrink: 0,
+                                    }}>
+                                        <i className={a.icon}></i>
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{a.label}</span>
+                                </Link>
+                            ))}
                         </div>
 
-                        {(() => {
-                            const f = (user?.filiere || '').toLowerCase();
-                            const myCat = f ? categories.find(c => norm(c.name).includes(norm(f)) || norm(f).includes(norm(c.name))) : null;
-                            return myCat ? (
-                                <div style={{ background: 'white', borderRadius: 16, padding: 28, border: '1px solid #f0f0f0', textAlign: 'center' }}>
-                                    <div style={{ width: 56, height: 56, borderRadius: 14, background: '#e8f8f5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 24, color: TEAL }}>
-                                        <i className={myCat.icon || 'fas fa-laptop-code'}></i>
-                                    </div>
-                                    <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 6 }}>{myCat.name}</h3>
-                                    <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>{myCat.courses_count || 0} cours disponibles</p>
-                                    <Link to={`/formations/${myCat.id}`} style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 8,
-                                        background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
-                                        color: 'white', padding: '11px 24px', borderRadius: 10,
-                                        fontWeight: 600, fontSize: 13, textDecoration: 'none',
-                                        boxShadow: '0 3px 10px rgba(91,188,180,0.3)',
+                        {/* My courses */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                            <h2 style={{ fontSize: 16, fontWeight: 800, color: NAVY, margin: 0 }}>
+                                <i className="fas fa-book-open" style={{ color: TEAL, marginRight: 8, fontSize: 14 }}></i>
+                                Mes cours
+                            </h2>
+                            {myCat && (
+                                <Link to={`/formations/${myCat.id}`} style={{ fontSize: 12, color: TEAL, fontWeight: 600, textDecoration: 'none' }}>
+                                    Voir tout &rarr;
+                                </Link>
+                            )}
+                        </div>
+
+                        {loadingCourses ? (
+                            <div style={{ background: 'white', borderRadius: 14, padding: 40, textAlign: 'center', border: '1px solid #f0f0f0' }}>
+                                <div style={{ width: 32, height: 32, border: '3px solid #e5e7eb', borderTopColor: TEAL, borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }}></div>
+                                <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Chargement...</p>
+                            </div>
+                        ) : myCourses.length > 0 ? (
+                            <div className="db-courses">
+                                {myCourses.slice(0, 6).map(ue => {
+                                    const docs = ue.knowledge_documents?.length || 0;
+                                    return (
+                                        <Link key={ue.id} to={myCat ? `/formations/${myCat.id}` : '/formations'} style={{
+                                            background: 'white', borderRadius: 14, padding: '16px 18px',
+                                            border: '1px solid #f0f0f0', textDecoration: 'none',
+                                            display: 'flex', alignItems: 'center', gap: 12,
+                                            transition: 'all .2s',
+                                        }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = TEAL; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(91,188,180,0.1)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = '#f0f0f0'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                        >
+                                            <div style={{
+                                                width: 40, height: 40, borderRadius: 10, background: '#e8f8f5',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: 16, color: TEAL, flexShrink: 0,
+                                            }}>
+                                                <i className="fas fa-layer-group"></i>
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ue.nom}</div>
+                                                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
+                                                    {ue.code && `${ue.code} · `}S{ue.semestre} · {docs} cours
+                                                </div>
+                                            </div>
+                                            <i className="fas fa-chevron-right" style={{ fontSize: 10, color: '#d1d5db' }}></i>
+                                        </Link>
+                                    );
+                                })}
+                                {myCourses.length > 6 && (
+                                    <Link to={myCat ? `/formations/${myCat.id}` : '/formations'} style={{
+                                        background: `${TEAL}08`, borderRadius: 14, padding: '16px',
+                                        border: `1.5px dashed ${TEAL}40`, textDecoration: 'none',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                        color: TEAL, fontSize: 12, fontWeight: 700,
                                     }}>
-                                        <i className="fas fa-book-open"></i> Acceder a mes cours
+                                        <i className="fas fa-plus-circle"></i> Voir les {myCourses.length - 6} autres UEs
                                     </Link>
-                                </div>
-                            ) : (
-                                <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
-                                    <i className="fas fa-book-open" style={{ fontSize: 32, marginBottom: 12, color: '#e5e7eb' }}></i>
-                                    <p style={{ fontSize: 14 }}>Vous n'avez pas encore commence de cours.</p>
-                                    <p style={{ fontSize: 12, color: '#b0b0b0' }}>Explorez les formations pour commencer vos cours.</p>
-                                </div>
-                            );
-                        })()}
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ background: 'white', borderRadius: 14, padding: '32px 24px', textAlign: 'center', border: '1px solid #f0f0f0' }}>
+                                <i className="fas fa-book-open" style={{ fontSize: 28, color: '#e5e7eb', marginBottom: 10, display: 'block' }}></i>
+                                <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 14px' }}>
+                                    {user?.filiere ? `Aucun cours pour ${user.filiere} pour le moment.` : 'Explorez les formations disponibles.'}
+                                </p>
+                                <Link to="/formations" style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    background: TEAL, color: 'white', padding: '9px 18px',
+                                    borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                                }}>
+                                    <i className="fas fa-search"></i> Explorer les formations
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     {/* Right column */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-                        {/* User profile card */}
-                        <div style={{ background: 'white', borderRadius: 16, padding: 24, border: '1px solid #f0f0f0', textAlign: 'center' }}>
-                            <div style={{
-                                width: 64, height: 64, borderRadius: '50%',
-                                background: 'linear-gradient(135deg, #5BBCB4, #1B2A4A)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: 'white', fontSize: 24, fontWeight: 800,
-                                margin: '0 auto 14px',
-                            }}>
-                                {firstName.charAt(0).toUpperCase()}
+                        {/* Profile card */}
+                        <div style={{ background: 'white', borderRadius: 14, padding: 22, border: '1px solid #f0f0f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+                                <div style={{
+                                    width: 50, height: 50, borderRadius: '50%',
+                                    background: `linear-gradient(135deg, ${TEAL}, ${NAVY})`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: 'white', fontSize: 20, fontWeight: 800, flexShrink: 0,
+                                }}>
+                                    {firstName.charAt(0).toUpperCase()}
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{user?.name || 'Etudiant'}</div>
+                                    <div style={{ fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+                                </div>
                             </div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>{user?.name || 'Etudiant'}</div>
-                            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>{user?.email || ''}</div>
                             {(user?.filiere || user?.niveau) && (
-                                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                    {user.filiere && (
-                                        <span style={{ fontSize: 10, background: '#e8f8f5', color: TEAL, padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-                                            {user.filiere}
-                                        </span>
-                                    )}
-                                    {user.niveau && (
-                                        <span style={{ fontSize: 10, background: '#f0f4ff', color: NAVY, padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-                                            {user.niveau}
-                                        </span>
-                                    )}
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                                    {user.filiere && <span style={{ fontSize: 10, background: '#e8f8f5', color: TEAL, padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>{user.filiere}</span>}
+                                    {user.niveau && <span style={{ fontSize: 10, background: '#f0f4ff', color: NAVY, padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>{user.niveau}</span>}
                                 </div>
                             )}
-                            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'center', gap: 20 }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>3</div>
-                                    <div style={{ fontSize: 11, color: '#9ca3af' }}>Quiz</div>
-                                </div>
-                                <div style={{ width: 1, background: '#f3f4f6' }}></div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>12</div>
-                                    <div style={{ fontSize: 11, color: '#9ca3af' }}>Videos</div>
-                                </div>
-                                <div style={{ width: 1, background: '#f3f4f6' }}></div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 18, fontWeight: 800, color: TEAL }}>76%</div>
-                                    <div style={{ fontSize: 11, color: '#9ca3af' }}>Score</div>
-                                </div>
-                            </div>
                             <Link to="/profil" style={{
-                                display: 'block', marginTop: 16,
-                                padding: '10px', borderRadius: 10,
-                                background: '#f8fafb', color: NAVY,
-                                fontSize: 13, fontWeight: 600,
-                                textDecoration: 'none', border: '1px solid #f0f0f0',
-                                transition: 'all .2s',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                padding: '9px', borderRadius: 8, background: '#f8fafb',
+                                color: NAVY, fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                                border: '1px solid #f0f0f0', transition: 'all .15s',
                             }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = TEAL; e.currentTarget.style.color = TEAL; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = '#f0f0f0'; e.currentTarget.style.color = NAVY; }}
                             >
-                                <i className="fas fa-user-cog" style={{ marginRight: 6 }}></i>Mon profil
+                                <i className="fas fa-user-cog"></i> Mon profil
                             </Link>
                         </div>
 
-                        {/* Activite recente placeholder */}
-                        <div style={{ background: 'white', borderRadius: 16, padding: 22, border: '1px solid #f0f0f0' }}>
-                            <h3 style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 16 }}>
-                                <i className="fas fa-history" style={{ color: TEAL, marginRight: 8 }}></i>
-                                Activite recente
+                        {/* My specialty */}
+                        {myCat && (
+                            <div style={{
+                                background: `linear-gradient(135deg, ${NAVY}, #2d4470)`,
+                                borderRadius: 14, padding: 22, color: 'white',
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                                    <div style={{
+                                        width: 40, height: 40, borderRadius: 10,
+                                        background: 'rgba(91,188,180,0.2)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: 18, color: TEAL, flexShrink: 0,
+                                    }}>
+                                        <i className={myCat.icon || 'fas fa-laptop-code'}></i>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>MA SPECIALITE</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700 }}>{myCat.name}</div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                                    <div style={{ flex: 1, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: 18, fontWeight: 800, color: TEAL }}>{myCourses.length}</div>
+                                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>UEs</div>
+                                    </div>
+                                    <div style={{ flex: 1, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: 18, fontWeight: 800, color: '#F5A623' }}>{myCourses.reduce((s, ue) => s + (ue.knowledge_documents?.length || 0), 0)}</div>
+                                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Cours</div>
+                                    </div>
+                                </div>
+                                <Link to={`/formations/${myCat.id}`} style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                    background: TEAL, color: 'white', padding: '10px',
+                                    borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                                }}>
+                                    <i className="fas fa-book-open"></i> Acceder aux cours
+                                </Link>
+                            </div>
+                        )}
+
+                        {/* Quick links */}
+                        <div style={{ background: 'white', borderRadius: 14, padding: 18, border: '1px solid #f0f0f0' }}>
+                            <h3 style={{ fontSize: 13, fontWeight: 800, color: NAVY, margin: '0 0 12px' }}>
+                                <i className="fas fa-link" style={{ color: TEAL, marginRight: 6 }}></i>
+                                Liens utiles
                             </h3>
                             {[
-                                { icon: 'fas fa-book-reader', text: 'Cours Algorithmes lu', time: 'Il y a 2h', color: TEAL },
-                                { icon: 'fas fa-clipboard-check', text: 'Quiz Algorithmes complete', time: 'Hier', color: '#F5A623' },
-                                { icon: 'fas fa-file-alt', text: 'Sujet examen consulte', time: 'Il y a 3j', color: '#E74C3C' },
-                                { icon: 'fas fa-robot', text: 'Session Assistant IA', time: 'Il y a 5j', color: NAVY },
-                            ].map((a, i) => (
-                                <div key={i} style={{
-                                    display: 'flex', alignItems: 'center', gap: 12,
-                                    padding: '10px 0',
-                                    borderBottom: i < 3 ? '1px solid #f9fafb' : 'none',
-                                }}>
+                                { icon: 'fas fa-clipboard-list', label: 'Programme de revision', to: '/revision', color: '#8B5CF6' },
+                                { icon: 'fas fa-store', label: 'Marketplace', to: '/marketplace', color: '#F5A623' },
+                                { icon: 'fas fa-compass', label: 'Test d\'orientation', to: '/orientation', color: '#10B981' },
+                            ].map((lk, i) => (
+                                <Link key={i} to={lk.to} style={{
+                                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0',
+                                    borderBottom: i < 2 ? '1px solid #f9fafb' : 'none',
+                                    textDecoration: 'none', transition: 'all .15s',
+                                }}
+                                    onMouseEnter={e => e.currentTarget.style.paddingLeft = '4px'}
+                                    onMouseLeave={e => e.currentTarget.style.paddingLeft = '0'}
+                                >
                                     <div style={{
-                                        width: 34, height: 34, borderRadius: 10,
-                                        background: `${a.color}12`,
+                                        width: 30, height: 30, borderRadius: 8, background: `${lk.color}12`,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 14, color: a.color, flexShrink: 0,
+                                        fontSize: 12, color: lk.color, flexShrink: 0,
                                     }}>
-                                        <i className={a.icon}></i>
+                                        <i className={lk.icon}></i>
                                     </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.text}</div>
-                                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{a.time}</div>
-                                    </div>
-                                </div>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{lk.label}</span>
+                                    <i className="fas fa-chevron-right" style={{ fontSize: 9, color: '#d1d5db', marginLeft: 'auto' }}></i>
+                                </Link>
                             ))}
                         </div>
-
-                        {/* Formations disponibles */}
-                        {categories.length > 0 && (() => {
-                            const f = (user?.filiere || '').toLowerCase();
-                            const mySpecs = f ? categories.filter(c => norm(c.name).includes(norm(f)) || norm(f).includes(norm(c.name))) : [];
-                            const displayCats = mySpecs.length > 0 ? mySpecs : categories.slice(0, 4);
-                            return (
-                            <div style={{ background: 'white', borderRadius: 16, padding: 22, border: '1px solid #f0f0f0' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                                    <h3 style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>
-                                        <i className="fas fa-graduation-cap" style={{ color: TEAL, marginRight: 8 }}></i>
-                                        {mySpecs.length > 0 ? 'Ma specialite' : 'Specialites disponibles'}
-                                    </h3>
-                                    <Link to="/formations" style={{ fontSize: 11, color: TEAL, fontWeight: 600, textDecoration: 'none' }}>Voir tout</Link>
-                                </div>
-                                {displayCats.slice(0, 4).map((cat, i) => (
-                                    <Link key={cat.id} to={`/formations/${cat.id}`} style={{
-                                        display: 'flex', alignItems: 'center', gap: 10,
-                                        padding: '9px 0',
-                                        borderBottom: i < Math.min(categories.length, 4) - 1 ? '1px solid #f9fafb' : 'none',
-                                        textDecoration: 'none',
-                                        transition: 'all .15s',
-                                    }}
-                                        onMouseEnter={e => e.currentTarget.style.paddingLeft = '4px'}
-                                        onMouseLeave={e => e.currentTarget.style.paddingLeft = '0'}
-                                    >
-                                        <div style={{
-                                            width: 32, height: 32, borderRadius: 8,
-                                            background: '#e8f8f5',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 13, color: TEAL, flexShrink: 0,
-                                        }}>
-                                            <i className={cat.icon || 'fas fa-laptop-code'}></i>
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.name}</div>
-                                            {cat.videos_count > 0 && <div style={{ fontSize: 11, color: '#9ca3af' }}>{cat.videos_count} video{cat.videos_count > 1 ? 's' : ''}</div>}
-                                        </div>
-                                        <i className="fas fa-chevron-right" style={{ fontSize: 10, color: '#d1d5db' }}></i>
-                                    </Link>
-                                ))}
-                            </div>
-                            );
-                        })()}
                     </div>
                 </div>
-
-                {/* ── PROGRESSION PAR UE ── */}
-                <div style={{ marginTop: 36 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>
-                            <i className="fas fa-chart-line" style={{ color: TEAL, marginRight: 8, fontSize: 16 }}></i>
-                            Progression par UE
-                        </h2>
-                        <Link to="/progression" style={{ color: TEAL, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-                            Voir tout &rarr;
-                        </Link>
-                    </div>
-
-                    {loadingProgress ? (
-                        <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
-                            <i className="fas fa-spinner fa-spin" style={{ fontSize: 24, marginBottom: 12 }}></i>
-                            <p>Chargement de la progression...</p>
-                        </div>
-                    ) : ueProgress.length > 0 ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-                            {ueProgress.slice(0, 6).map((ue, i) => {
-                                const readPct = Math.round(ue.course_progress || 0);
-                                const quizPct = Math.round(ue.quiz_progress || ue.avg_score || 0);
-                                return (
-                                    <div key={i} style={{
-                                        background: 'white', borderRadius: 14, padding: '18px 20px',
-                                        border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                                            <h3 style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.3, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {ue.subject || ue.name || 'UE'}
-                                            </h3>
-                                            <span style={{
-                                                fontSize: 11, fontWeight: 700, color: readPct >= 80 ? '#10b981' : readPct >= 50 ? '#f59e0b' : '#ef4444',
-                                                background: readPct >= 80 ? '#d1fae5' : readPct >= 50 ? '#fef3c7' : '#fee2e2',
-                                                padding: '2px 8px', borderRadius: 6, flexShrink: 0, marginLeft: 8,
-                                            }}>
-                                                {readPct}%
-                                            </span>
-                                        </div>
-                                        {/* Lecture progress */}
-                                        <div style={{ marginBottom: 10 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>
-                                                    <i className="fas fa-book-reader" style={{ marginRight: 4, color: TEAL }}></i>Lecture
-                                                </span>
-                                                <span style={{ fontSize: 11, fontWeight: 700, color: TEAL }}>{readPct}%</span>
-                                            </div>
-                                            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
-                                                <div style={{ width: `${readPct}%`, height: '100%', background: `linear-gradient(90deg, ${TEAL}, #3da89e)`, borderRadius: 3, transition: 'width 0.5s' }}></div>
-                                            </div>
-                                        </div>
-                                        {/* Quiz progress */}
-                                        <div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>
-                                                    <i className="fas fa-clipboard-check" style={{ marginRight: 4, color: '#f59e0b' }}></i>Quiz
-                                                </span>
-                                                <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>{quizPct}%</span>
-                                            </div>
-                                            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
-                                                <div style={{ width: `${quizPct}%`, height: '100%', background: 'linear-gradient(90deg, #f59e0b, #d97706)', borderRadius: 3, transition: 'width 0.5s' }}></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
-                            <i className="fas fa-chart-bar" style={{ fontSize: 32, marginBottom: 12, color: '#e5e7eb' }}></i>
-                            <p style={{ fontSize: 14 }}>Aucune donnee de progression.</p>
-                            <p style={{ fontSize: 12, color: '#b0b0b0' }}>Completez des quiz et des cours pour voir votre progression.</p>
-                        </div>
-                    )}
-                </div>
-
             </div>
+
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 }
