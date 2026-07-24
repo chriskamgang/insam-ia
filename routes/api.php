@@ -95,6 +95,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/exams/correct', [ExamController::class, 'correctAnswers']);
     Route::post('/exams/correct-image', [ExamController::class, 'correctImage']);
     Route::post('/exams/generate-exercises', [ExamController::class, 'generateExercises']);
+    Route::post('/exams/verify-syllabus', [ExamController::class, 'verifySyllabus']);
     Route::post('/exams/submit-and-correct', [ExamController::class, 'submitAndCorrect']);
     Route::post('/exams/summarize-course', [ExamController::class, 'summarizeCourse']);
     Route::post('/exams/generate-quiz', [ExamController::class, 'generateQuiz']);

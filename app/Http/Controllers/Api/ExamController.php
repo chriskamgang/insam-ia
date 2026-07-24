@@ -577,6 +577,54 @@ PROMPT;
     }
 
     /**
+     * Verify syllabus conformity: compare ministry syllabus vs course support.
+     */
+    public function verifySyllabus(Request $request)
+    {
+        $request->validate([
+            'syllabus' => 'required|string|min:10',
+            'support'  => 'required|string|min:10',
+            'course_title' => 'nullable|string',
+        ]);
+
+        $title = $request->course_title ?? 'ce cours';
+
+        $systemPrompt = "Tu es un expert en pedagogie universitaire et en conformite des programmes d'enseignement au Cameroun. Tu compares les syllabi ministeriels avec les supports de cours pour identifier les ecarts. Reponds en francais. Utilise le format Markdown avec des tableaux.";
+
+        $userMessage = <<<PROMPT
+Compare le syllabus ministeriel avec le support de cours pour "{$title}" et identifie les ecarts.
+
+**SYLLABUS MINISTERIEL:**
+{$request->syllabus}
+
+**SUPPORT DE COURS:**
+{$request->support}
+
+Fais une analyse detaillee avec:
+
+1. **Tableau de conformite** - Pour chaque point/chapitre du syllabus, indique:
+   | Point du syllabus | Present dans le support | Niveau de couverture | Remarque |
+   Utilise des indicateurs: Complet, Partiel, Absent
+
+2. **Points manquants** - Liste detaillee des points du syllabus qui ne sont PAS couverts dans le support de cours, avec leur importance
+
+3. **Points partiellement couverts** - Points presents mais insuffisamment developpes, avec ce qui manque specifiquement
+
+4. **Points supplementaires** - Elements dans le support qui ne sont pas dans le syllabus (bonus ou hors programme)
+
+5. **Score de conformite** - Pourcentage global de couverture du syllabus
+
+6. **Recommandations d'amelioration** - Actions concretes pour mettre le support en conformite avec le syllabus, classees par priorite
+
+Sois precis et objectif dans ton analyse.
+PROMPT;
+
+        $result = AiService::chat($systemPrompt, $userMessage, [], 8000);
+
+        return response()->json(['result' => $result]);
+    }
+
+    /**
      * Generate quiz questions from a course/UE.
      */
     public function generateQuiz(Request $request)
