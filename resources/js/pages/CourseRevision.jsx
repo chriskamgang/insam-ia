@@ -191,7 +191,7 @@ export default function CourseRevision() {
     const courseContent = document?.content || '';
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafb' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 70px)', background: '#f8fafb' }}>
             <style>{revCSS}{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
             {/* Header */}
