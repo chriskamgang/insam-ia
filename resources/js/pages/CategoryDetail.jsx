@@ -54,6 +54,12 @@ export default function CategoryDetail() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(null);
     const [expandedUe, setExpandedUe] = useState(null);
+    const [aiPanel, setAiPanel] = useState(null); // { docId, mode: 'summary'|'quiz' }
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiResult, setAiResult] = useState({}); // { [docId_mode]: data }
+    const [quizAnswers, setQuizAnswers] = useState({});
+    const [quizSubmitted, setQuizSubmitted] = useState(false);
+    const [viewingDoc, setViewingDoc] = useState(null); // docId of PDF being viewed inline
 
     useEffect(() => {
         setLoading(true);
@@ -147,6 +153,66 @@ export default function CategoryDetail() {
             bg: '#eef0f5',
         },
     ];
+
+    // ── AI Revision helpers ───────────────────────────────────────────────
+    const startAi = async (doc, ue, mode) => {
+        const key = `${doc.id}_${mode}`;
+        // If already loaded, just toggle panel
+        if (aiResult[key]) {
+            setAiPanel(aiPanel?.docId === doc.id && aiPanel?.mode === mode ? null : { docId: doc.id, mode });
+            setQuizAnswers({});
+            setQuizSubmitted(false);
+            return;
+        }
+        setAiPanel({ docId: doc.id, mode });
+        setAiLoading(true);
+        setQuizAnswers({});
+        setQuizSubmitted(false);
+        try {
+            if (mode === 'summary') {
+                const r = await api.post('/api/exams/summarize-course', {
+                    course_title: doc.title,
+                    course_content: doc.content || '',
+                    filiere: ue.nom,
+                });
+                setAiResult(prev => ({ ...prev, [key]: r.data.summary }));
+            } else {
+                const r = await api.post('/api/exams/generate-quiz', {
+                    course_title: doc.title,
+                    course_content: doc.content || '',
+                    num_questions: 5,
+                });
+                setAiResult(prev => ({ ...prev, [key]: r.data.questions }));
+            }
+        } catch {
+            setAiResult(prev => ({ ...prev, [key]: mode === 'summary' ? 'Erreur lors de la generation du resume.' : [] }));
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const quizScore = (questions) => {
+        if (!questions?.length) return 0;
+        let correct = 0;
+        questions.forEach((q, i) => { if (quizAnswers[i] === q.correct) correct++; });
+        return correct;
+    };
+
+    const renderMd = (md) => {
+        if (!md) return '';
+        return md
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/^### (.+)$/gm, '<h3 style="font-size:15px;font-weight:700;color:#1B2A4A;margin:16px 0 6px;">$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2 style="font-size:17px;font-weight:800;color:#1B2A4A;margin:20px 0 8px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;">$1</h2>')
+            .replace(/^# (.+)$/gm, '<h1 style="font-size:19px;font-weight:800;color:#1B2A4A;margin:22px 0 10px;">$1</h1>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#1B2A4A;">$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/^[\-\*] (.+)$/gm, '<li style="margin:4px 0;">$1</li>')
+            .replace(/^\d+\. (.+)$/gm, '<li style="margin:4px 0;list-style-type:decimal;">$1</li>')
+            .replace(/(<li[^>]*>[\s\S]*?<\/li>\n?)+/g, m => `<ul style="margin:8px 0 8px 20px;">${m}</ul>`)
+            .replace(/\n{2,}/g, '</p><p style="margin:0 0 8px;line-height:1.7;color:#374151;">')
+            .replace(/\n/g, '<br>');
+    };
 
     const typeIcon = (type) => {
         switch (type) {
@@ -319,30 +385,166 @@ export default function CategoryDetail() {
 
                                                 {isOpen && docs.length > 0 && (
                                                     <div style={{ padding: '8px 20px 16px', borderTop: '1px solid #f0f0f0' }}>
-                                                        {docs.map((doc) => (
-                                                            <Link
-                                                                key={doc.id}
-                                                                to={doc.file_path ? `/api/storage/${doc.file_path}` : '#'}
-                                                                target={doc.file_path ? '_blank' : undefined}
-                                                                style={{
+                                                        {docs.map((doc) => {
+                                                            const isAiOpen = aiPanel?.docId === doc.id;
+                                                            const summaryKey = `${doc.id}_summary`;
+                                                            const quizKey = `${doc.id}_quiz`;
+                                                            return (
+                                                            <div key={doc.id}>
+                                                                <div style={{
                                                                     display: 'flex', alignItems: 'center', gap: 12,
                                                                     padding: '10px 14px', marginTop: 6, borderRadius: 10,
-                                                                    textDecoration: 'none', transition: 'background .15s',
-                                                                    background: '#fafafa',
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.background = '#e8f8f5'}
-                                                                onMouseLeave={e => e.currentTarget.style.background = '#fafafa'}
-                                                            >
-                                                                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${typeColor(doc.type)}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                    <i className={typeIcon(doc.type)} style={{ fontSize: 14, color: typeColor(doc.type) }}></i>
+                                                                    background: isAiOpen ? '#e8f8f5' : '#fafafa',
+                                                                    flexWrap: 'wrap',
+                                                                }}>
+                                                                    <div style={{ width: 32, height: 32, borderRadius: 8, background: `${typeColor(doc.type)}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                        <i className={typeIcon(doc.type)} style={{ fontSize: 14, color: typeColor(doc.type) }}></i>
+                                                                    </div>
+                                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                                        <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{doc.title}</div>
+                                                                        <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', marginTop: 2 }}>{doc.type}</div>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                                                        {doc.file_path && (
+                                                                            <button onClick={() => setViewingDoc(viewingDoc === doc.id ? null : doc.id)}
+                                                                                style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: viewingDoc === doc.id ? NAVY : '#f3f4f6', color: viewingDoc === doc.id ? 'white' : '#6b7280', display: 'flex', alignItems: 'center', gap: 4, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                                                                                title="Lire le cours"
+                                                                            >
+                                                                                <i className={`fas fa-${viewingDoc === doc.id ? 'times' : 'eye'}`} style={{ fontSize: 10 }}></i> {viewingDoc === doc.id ? 'Fermer' : 'Lire'}
+                                                                            </button>
+                                                                        )}
+                                                                        {user && (
+                                                                            <>
+                                                                                <button onClick={() => startAi(doc, ue, 'summary')}
+                                                                                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: isAiOpen && aiPanel.mode === 'summary' ? TEAL : '#e8f8f5', color: isAiOpen && aiPanel.mode === 'summary' ? 'white' : TEAL, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                                                                                    title="Resume IA du cours"
+                                                                                >
+                                                                                    <i className="fas fa-magic" style={{ fontSize: 10 }}></i> Resume
+                                                                                </button>
+                                                                                <button onClick={() => startAi(doc, ue, 'quiz')}
+                                                                                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: isAiOpen && aiPanel.mode === 'quiz' ? '#F5A623' : '#fff8ec', color: isAiOpen && aiPanel.mode === 'quiz' ? 'white' : '#F5A623', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                                                                                    title="Quiz IA de revision"
+                                                                                >
+                                                                                    <i className="fas fa-question-circle" style={{ fontSize: 10 }}></i> Quiz
+                                                                                </button>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                                <div style={{ flex: 1 }}>
-                                                                    <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{doc.title}</div>
-                                                                    <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', marginTop: 2 }}>{doc.type}</div>
-                                                                </div>
-                                                                <i className="fas fa-external-link-alt" style={{ fontSize: 11, color: '#d1d5db' }}></i>
-                                                            </Link>
-                                                        ))}
+
+                                                                {/* Inline PDF viewer */}
+                                                                {viewingDoc === doc.id && doc.file_path && (
+                                                                    <div style={{ margin: '6px 0 10px', borderRadius: 12, overflow: 'hidden', border: `1.5px solid ${NAVY}`, background: '#f8f9fa' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: NAVY }}>
+                                                                            <span style={{ fontSize: 12, fontWeight: 600, color: 'white' }}><i className="fas fa-book-reader" style={{ marginRight: 6 }}></i>{doc.title}</span>
+                                                                            <button onClick={() => setViewingDoc(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 14 }}><i className="fas fa-times"></i></button>
+                                                                        </div>
+                                                                        <iframe
+                                                                            src={`/storage/${doc.file_path}#toolbar=0&navpanes=0`}
+                                                                            style={{ width: '100%', height: 600, border: 'none' }}
+                                                                            title={doc.title}
+                                                                        />
+                                                                    </div>
+                                                                )}
+
+                                                                {/* AI Panel */}
+                                                                {isAiOpen && (
+                                                                    <div style={{ margin: '6px 0 10px', padding: '18px 16px', borderRadius: 12, background: 'white', border: `1.5px solid ${aiPanel.mode === 'summary' ? TEAL : '#F5A623'}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+                                                                        {aiLoading ? (
+                                                                            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                                                                                <div style={{ width: 32, height: 32, border: '3px solid #e5e7eb', borderTopColor: aiPanel.mode === 'summary' ? TEAL : '#F5A623', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }}></div>
+                                                                                <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
+                                                                                    {aiPanel.mode === 'summary' ? "L'IA resume votre cours..." : "L'IA genere votre quiz..."}
+                                                                                </p>
+                                                                            </div>
+                                                                        ) : aiPanel.mode === 'summary' ? (
+                                                                            /* Summary view */
+                                                                            <div>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                                                                                    <i className="fas fa-magic" style={{ color: TEAL }}></i>
+                                                                                    <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Resume IA — {doc.title}</span>
+                                                                                    <button onClick={() => setAiPanel(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16 }}><i className="fas fa-times"></i></button>
+                                                                                </div>
+                                                                                <div style={{ fontSize: 13, lineHeight: 1.75, color: '#374151' }}
+                                                                                    dangerouslySetInnerHTML={{ __html: renderMd(aiResult[summaryKey] || '') }}
+                                                                                />
+                                                                            </div>
+                                                                        ) : (
+                                                                            /* Quiz view */
+                                                                            <div>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                                                                                    <i className="fas fa-question-circle" style={{ color: '#F5A623' }}></i>
+                                                                                    <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Quiz IA — {doc.title}</span>
+                                                                                    <button onClick={() => setAiPanel(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16 }}><i className="fas fa-times"></i></button>
+                                                                                </div>
+                                                                                {Array.isArray(aiResult[quizKey]) && aiResult[quizKey].length > 0 ? (
+                                                                                    <>
+                                                                                        {aiResult[quizKey].map((q, qi) => (
+                                                                                            <div key={qi} style={{ marginBottom: 18, padding: '14px', borderRadius: 10, background: '#fafafa', border: '1px solid #f0f0f0' }}>
+                                                                                                <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: '0 0 10px' }}>{qi + 1}. {q.question}</p>
+                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                                                                    {q.options?.map((opt, oi) => {
+                                                                                                        const selected = quizAnswers[qi] === oi;
+                                                                                                        const isCorrect = oi === q.correct;
+                                                                                                        let bg = 'white', border = '#e5e7eb', color = NAVY;
+                                                                                                        if (quizSubmitted) {
+                                                                                                            if (isCorrect) { bg = '#d1fae5'; border = '#6ee7b7'; color = '#065f46'; }
+                                                                                                            else if (selected && !isCorrect) { bg = '#fee2e2'; border = '#fca5a5'; color = '#991b1b'; }
+                                                                                                        } else if (selected) {
+                                                                                                            bg = '#e8f8f5'; border = TEAL; color = TEAL;
+                                                                                                        }
+                                                                                                        return (
+                                                                                                            <button key={oi} onClick={() => { if (!quizSubmitted) setQuizAnswers(p => ({ ...p, [qi]: oi })); }}
+                                                                                                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color, cursor: quizSubmitted ? 'default' : 'pointer', textAlign: 'left', fontSize: 12, fontWeight: selected ? 700 : 500, fontFamily: 'inherit', transition: 'all .15s' }}
+                                                                                                            >
+                                                                                                                <span style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, background: selected ? (quizSubmitted ? bg : TEAL) : 'white', color: selected ? 'white' : '#9ca3af' }}>
+                                                                                                                    {String.fromCharCode(65 + oi)}
+                                                                                                                </span>
+                                                                                                                {opt}
+                                                                                                            </button>
+                                                                                                        );
+                                                                                                    })}
+                                                                                                </div>
+                                                                                                {quizSubmitted && q.explanation && (
+                                                                                                    <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: '#f0f9ff', fontSize: 11, color: '#1e40af', lineHeight: 1.6 }}>
+                                                                                                        <i className="fas fa-lightbulb" style={{ marginRight: 6, color: '#F5A623' }}></i>{q.explanation}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        ))}
+                                                                                        {!quizSubmitted ? (
+                                                                                            <button onClick={() => setQuizSubmitted(true)}
+                                                                                                disabled={Object.keys(quizAnswers).length < aiResult[quizKey].length}
+                                                                                                style={{ width: '100%', padding: '12px', borderRadius: 10, background: Object.keys(quizAnswers).length < aiResult[quizKey].length ? '#e5e7eb' : '#F5A623', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: Object.keys(quizAnswers).length < aiResult[quizKey].length ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+                                                                                            >
+                                                                                                Valider mes reponses
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <div style={{ textAlign: 'center', padding: '14px', borderRadius: 12, background: quizScore(aiResult[quizKey]) >= aiResult[quizKey].length * 0.6 ? '#d1fae5' : '#fef3c7', border: `1px solid ${quizScore(aiResult[quizKey]) >= aiResult[quizKey].length * 0.6 ? '#6ee7b7' : '#fcd34d'}` }}>
+                                                                                                <div style={{ fontSize: 28, fontWeight: 800, color: NAVY }}>{quizScore(aiResult[quizKey])}/{aiResult[quizKey].length}</div>
+                                                                                                <p style={{ fontSize: 13, color: '#6b7280', margin: '6px 0 10px' }}>
+                                                                                                    {quizScore(aiResult[quizKey]) >= aiResult[quizKey].length * 0.8 ? 'Excellent ! Vous maitrisez ce cours.' :
+                                                                                                     quizScore(aiResult[quizKey]) >= aiResult[quizKey].length * 0.6 ? 'Bien ! Quelques points a revoir.' :
+                                                                                                     'Continuez a reviser ce cours pour ameliorer vos resultats.'}
+                                                                                                </p>
+                                                                                                <button onClick={() => { setQuizAnswers({}); setQuizSubmitted(false); setAiResult(prev => { const n = { ...prev }; delete n[quizKey]; return n; }); startAi(doc, ue, 'quiz'); }}
+                                                                                                    style={{ padding: '8px 20px', borderRadius: 8, background: TEAL, color: 'white', fontWeight: 600, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                                                                                                >
+                                                                                                    <i className="fas fa-redo" style={{ marginRight: 6 }}></i>Nouveau quiz
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <p style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center' }}>Impossible de generer le quiz. Reessayez.</p>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
 
