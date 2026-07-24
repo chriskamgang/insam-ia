@@ -51,7 +51,7 @@ function Markdown({ text }) {
 }
 
 // ── Exam Card ──
-function ExamCard({ exam, onCorrect, onDownload }) {
+function ExamCard({ exam, onCorrect }) {
     const { t } = useLang();
     return (
         <div style={{
@@ -73,15 +73,6 @@ function ExamCard({ exam, onCorrect, onDownload }) {
                 {exam.filiere && <div style={{ fontSize: 12, color: '#6b7280' }}><i className="fas fa-graduation-cap" style={{ marginRight: 6, color: '#9ca3af' }}></i>{exam.filiere}</div>}
             </div>
             <div style={{ padding: '10px 18px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: 8 }}>
-                {onDownload && (
-                    <button onClick={() => onDownload(exam)} style={{
-                        flex: 1, padding: '8px', borderRadius: 8, border: 'none',
-                        background: TEAL, color: 'white', fontSize: 12, fontWeight: 600,
-                        cursor: 'pointer', fontFamily: 'inherit',
-                    }}>
-                        <i className="fas fa-download" style={{ marginRight: 5 }}></i>{t('library.download')}
-                    </button>
-                )}
                 <button onClick={() => onCorrect(exam)} style={{
                     flex: 1, padding: '8px', borderRadius: 8, border: `1.5px solid ${TEAL}`,
                     background: 'white', color: TEAL, fontSize: 12, fontWeight: 600,
@@ -175,17 +166,6 @@ export default function Library() {
         if (filterFiliere && !e.filiere?.toLowerCase().includes(filterFiliere.toLowerCase())) return false;
         return true;
     });
-
-    const handleDownload = async (exam) => {
-        try {
-            const r = await api.get(`/api/exams/${exam.id}/download`, { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([r.data]));
-            const a = document.createElement('a');
-            a.href = url; a.download = exam.file_name || `${exam.title}.pdf`;
-            document.body.appendChild(a); a.click(); a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch { toast.error('Erreur lors du telechargement.'); }
-    };
 
     const handleCorrect = async (exam) => {
         setCorrectionModal({ exam, correction: null, loading: true });
@@ -282,7 +262,7 @@ export default function Library() {
                         ) : (
                             <div className="lib-grid3">
                                 {filtered.map(exam => (
-                                    <ExamCard key={exam.id} exam={exam} onCorrect={handleCorrect} onDownload={handleDownload} />
+                                    <ExamCard key={exam.id} exam={exam} onCorrect={handleCorrect} />
                                 ))}
                             </div>
                         )}

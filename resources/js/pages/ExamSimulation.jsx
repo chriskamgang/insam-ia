@@ -907,24 +907,22 @@ export default function ExamSimulation() {
 
                             {/* PDF link */}
                             {fileUrl && (
-                                <a
-                                    href={fileUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                <button
+                                    onClick={() => window.open(fileUrl, '_blank', 'noopener,noreferrer,toolbar=0,menubar=0')}
                                     style={{
                                         display: 'inline-flex', alignItems: 'center', gap: 8,
                                         marginTop: 16,
                                         padding: '10px 20px', borderRadius: 10,
                                         background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
-                                        color: 'white', textDecoration: 'none',
-                                        fontSize: 13, fontWeight: 700,
+                                        color: 'white', border: 'none',
+                                        fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                                        fontFamily: 'inherit',
                                         boxShadow: '0 3px 8px rgba(91,188,180,0.30)',
                                     }}
                                 >
                                     <i className="fas fa-file-pdf"></i>
-                                    Voir / Telecharger le sujet (PDF)
-                                    <i className="fas fa-external-link-alt" style={{ fontSize: 10 }}></i>
-                                </a>
+                                    Voir le sujet (PDF)
+                                </button>
                             )}
                         </div>
                     </div>

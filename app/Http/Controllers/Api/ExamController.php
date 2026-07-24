@@ -55,9 +55,14 @@ class ExamController extends Controller
             return response()->json(['message' => 'Fichier introuvable.'], 404);
         }
 
-        $exam->increment('downloads_count');
+        $exam->increment('views_count');
 
-        return Storage::download($exam->file_path, $exam->title . '.pdf');
+        // Serve inline only (no download)
+        $fullPath = Storage::path($exam->file_path);
+        return response()->file($fullPath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline',
+        ]);
     }
 
     /**

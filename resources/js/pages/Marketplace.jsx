@@ -398,7 +398,7 @@ function ItemDetailModal({ itemId, user, onClose, onPurchased }) {
     const [item, setItem] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showPayment, setShowPayment] = useState(false);
-    const [downloading, setDownloading] = useState(false);
+    const [showViewer, setShowViewer] = useState(false);
     const [reviews, setReviews] = useState([]);
 
     const fetchItem = useCallback(async () => {
@@ -417,24 +417,8 @@ function ItemDetailModal({ itemId, user, onClose, onPurchased }) {
 
     useEffect(() => { fetchItem(); }, [fetchItem]);
 
-    const handleDownload = async () => {
-        setDownloading(true);
-        try {
-            const response = await api.get(`/api/marketplace/${item.id}/download`, { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = item.file_name || `${item.title}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            toast.success('Telechargement demarre !');
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Erreur lors du telechargement.');
-        } finally {
-            setDownloading(false);
-        }
+    const handleView = () => {
+        setShowViewer(!showViewer);
     };
 
     const handlePurchaseSuccess = () => {
@@ -445,7 +429,7 @@ function ItemDetailModal({ itemId, user, onClose, onPurchased }) {
 
     const isFree = item && (!item.price || parseFloat(item.price) === 0);
     const isPurchased = item?.is_purchased;
-    const canDownload = isFree || isPurchased;
+    const canView = isFree || isPurchased;
     const ti = item ? typeInfo(item.type) : {};
 
     return (
@@ -576,7 +560,7 @@ function ItemDetailModal({ itemId, user, onClose, onPurchased }) {
                         {!user ? (
                             <div style={{ background: '#f8fafb', border: '1px dashed #d1d5db', borderRadius: 12, padding: 18, textAlign: 'center', marginBottom: 20 }}>
                                 <i className="fas fa-lock" style={{ fontSize: 22, color: '#9ca3af', marginBottom: 8, display: 'block' }}></i>
-                                <p style={{ margin: '0 0 12px', fontSize: 13, color: '#6b7280' }}>Connectez-vous pour telecharger ou acheter ce contenu.</p>
+                                <p style={{ margin: '0 0 12px', fontSize: 13, color: '#6b7280' }}>Connectez-vous pour consulter ou acheter ce contenu.</p>
                                 <a href="/login" style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 8,
                                     background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
@@ -587,26 +571,34 @@ function ItemDetailModal({ itemId, user, onClose, onPurchased }) {
                                     <i className="fas fa-sign-in-alt"></i>Se connecter
                                 </a>
                             </div>
-                        ) : canDownload ? (
-                            <button
-                                onClick={handleDownload}
-                                disabled={downloading}
-                                style={{
-                                    width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-                                    background: downloading ? '#d1d5db' : `linear-gradient(135deg, ${TEAL}, #3da89e)`,
-                                    color: 'white', fontWeight: 700, fontSize: 15,
-                                    cursor: downloading ? 'not-allowed' : 'pointer',
-                                    fontFamily: 'inherit', marginBottom: 20,
-                                    boxShadow: downloading ? 'none' : '0 4px 16px rgba(91,188,180,0.40)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                                    transition: 'all .2s',
-                                }}
-                            >
-                                {downloading
-                                    ? <><i className="fas fa-circle-notch fa-spin"></i>Telechargement...</>
-                                    : <><i className="fas fa-download"></i>Telecharger</>
-                                }
-                            </button>
+                        ) : canView ? (
+                            <>
+                                <button
+                                    onClick={handleView}
+                                    style={{
+                                        width: '100%', padding: '14px', borderRadius: 12, border: 'none',
+                                        background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                                        color: 'white', fontWeight: 700, fontSize: 15,
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit', marginBottom: showViewer ? 12 : 20,
+                                        boxShadow: '0 4px 16px rgba(91,188,180,0.40)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                        transition: 'all .2s',
+                                    }}
+                                >
+                                    <i className={`fas fa-${showViewer ? 'eye-slash' : 'eye'}`}></i>
+                                    {showViewer ? 'Fermer' : 'Consulter le document'}
+                                </button>
+                                {showViewer && item.file_path && (
+                                    <div style={{ marginBottom: 20, borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                                        <iframe
+                                            src={`/storage/${item.file_path}#toolbar=0&navpanes=0`}
+                                            style={{ width: '100%', height: 500, border: 'none' }}
+                                            title={item.title}
+                                        />
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div style={{ marginBottom: 20 }}>
                                 {!showPayment ? (
@@ -1063,19 +1055,19 @@ function MyPurchases({ onClose, onOpenItem }) {
                                             >
                                                 <i className="fas fa-eye"></i>Voir
                                             </button>
-                                            <a
-                                                href={`/api/marketplace/${p.id}/download`}
-                                                download
+                                            <button
+                                                onClick={() => { onClose(); onOpenItem(p.id); }}
                                                 style={{
                                                     background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
                                                     color: 'white', borderRadius: 8, padding: '7px 12px',
                                                     fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                                                    textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5,
+                                                    border: 'none', display: 'flex', alignItems: 'center', gap: 5,
+                                                    fontFamily: 'inherit',
                                                     boxShadow: '0 2px 6px rgba(91,188,180,0.30)',
                                                 }}
                                             >
-                                                <i className="fas fa-download"></i>Telecharger
-                                            </a>
+                                                <i className="fas fa-eye"></i>Consulter
+                                            </button>
                                         </div>
                                     </div>
                                 );

@@ -183,7 +183,12 @@ class MarketplaceController extends Controller
             return response()->json(['message' => 'Fichier introuvable.'], 404);
         }
 
-        return Storage::disk('public')->download($item->file_path, $item->title);
+        // Serve inline only (no download)
+        $fullPath = Storage::disk('public')->path($item->file_path);
+        return response()->file($fullPath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline',
+        ]);
     }
 
     public function review(Request $request, $id)
