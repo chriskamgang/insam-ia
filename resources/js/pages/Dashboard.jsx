@@ -37,6 +37,8 @@ const dashCSS = `
 }
 `;
 
+const norm = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 export default function Dashboard() {
     const { user } = useAuth();
     const { t } = useLang();
@@ -60,7 +62,7 @@ export default function Dashboard() {
                 // Prioritize categories matching user's filiere
                 if (user?.filiere) {
                     const f = user.filiere.toLowerCase();
-                    const matching = all.filter(c => c.name.toLowerCase().includes(f) || f.includes(c.name.toLowerCase()));
+                    const matching = all.filter(c => norm(c.name).includes(norm(f)) || norm(f).includes(norm(c.name)));
                     const rest = all.filter(c => !matching.includes(c));
                     setCategories([...matching, ...rest]);
                 } else {
@@ -222,7 +224,7 @@ export default function Dashboard() {
 
                         {(() => {
                             const f = (user?.filiere || '').toLowerCase();
-                            const myCat = f ? categories.find(c => c.name.toLowerCase().includes(f) || f.includes(c.name.toLowerCase())) : null;
+                            const myCat = f ? categories.find(c => norm(c.name).includes(norm(f)) || norm(f).includes(norm(c.name))) : null;
                             return myCat ? (
                                 <div style={{ background: 'white', borderRadius: 16, padding: 28, border: '1px solid #f0f0f0', textAlign: 'center' }}>
                                     <div style={{ width: 56, height: 56, borderRadius: 14, background: '#e8f8f5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 24, color: TEAL }}>
@@ -347,7 +349,7 @@ export default function Dashboard() {
                         {/* Formations disponibles */}
                         {categories.length > 0 && (() => {
                             const f = (user?.filiere || '').toLowerCase();
-                            const mySpecs = f ? categories.filter(c => c.name.toLowerCase().includes(f) || f.includes(c.name.toLowerCase())) : [];
+                            const mySpecs = f ? categories.filter(c => norm(c.name).includes(norm(f)) || norm(f).includes(norm(c.name))) : [];
                             const displayCats = mySpecs.length > 0 ? mySpecs : categories.slice(0, 4);
                             return (
                             <div style={{ background: 'white', borderRadius: 16, padding: 22, border: '1px solid #f0f0f0' }}>
