@@ -12,10 +12,12 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Storage;
+use Livewire\WithFileUploads;
 
 class SyllabusVerification extends Page implements HasForms
 {
-    use InteractsWithForms;
+    use InteractsWithForms, WithFileUploads;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
     protected static ?string $navigationLabel = 'Verification Syllabus';
@@ -33,6 +35,7 @@ class SyllabusVerification extends Page implements HasForms
     public string $result = '';
     public bool $loading = false;
     public ?int $viewingHistoryId = null;
+    public $supportFile = null;
 
     protected $queryString = ['doc'];
     public ?string $doc = null;
@@ -107,6 +110,59 @@ class SyllabusVerification extends Page implements HasForms
             $this->reset(['result', 'viewingHistoryId']);
         }
         Notification::make()->title('Verification supprimee')->success()->send();
+    }
+
+    public function updatedSupportFile(): void
+    {
+        if (!$this->supportFile) return;
+
+        $file = $this->supportFile;
+        $ext = strtolower($file->getClientOriginalExtension());
+        $text = '';
+
+        if ($ext === 'txt') {
+            $text = file_get_contents($file->getRealPath());
+        } elseif ($ext === 'pdf') {
+            // Try pdftotext
+            $tmpPath = $file->getRealPath();
+            $outputFile = tempnam(sys_get_temp_dir(), 'pdf_') . '.txt';
+            exec("pdftotext " . escapeshellarg($tmpPath) . " " . escapeshellarg($outputFile) . " 2>&1", $output, $code);
+            if ($code === 0 && file_exists($outputFile)) {
+                $text = file_get_contents($outputFile);
+                @unlink($outputFile);
+            } else {
+                @unlink($outputFile);
+                // Fallback: try with php
+                $text = '';
+                $content = file_get_contents($tmpPath);
+                // Basic PDF text extraction
+                if (preg_match_all('/\((.*?)\)/', $content, $matches)) {
+                    $text = implode(' ', $matches[1]);
+                }
+            }
+        } elseif (in_array($ext, ['doc', 'docx'])) {
+            // Convert to text via LibreOffice
+            $tmpPath = $file->getRealPath();
+            $tmpDir = sys_get_temp_dir() . '/lo_' . uniqid();
+            @mkdir($tmpDir, 0755, true);
+            exec("HOME=/var/www libreoffice --headless --convert-to txt --outdir " . escapeshellarg($tmpDir) . " " . escapeshellarg($tmpPath) . " 2>&1", $output, $code);
+            $baseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.txt';
+            $txtFile = $tmpDir . '/' . $baseName;
+            if (file_exists($txtFile)) {
+                $text = file_get_contents($txtFile);
+            }
+            @array_map('unlink', glob("$tmpDir/*"));
+            @rmdir($tmpDir);
+        }
+
+        if (trim($text)) {
+            $this->support = trim($text);
+            Notification::make()->title('Fichier importe')->body('Le contenu du support a ete extrait (' . strlen($text) . ' caracteres).')->success()->send();
+        } else {
+            Notification::make()->title('Extraction echouee')->body('Impossible d\'extraire le texte. Collez le contenu manuellement.')->warning()->send();
+        }
+
+        $this->supportFile = null;
     }
 
     public function verify(): void

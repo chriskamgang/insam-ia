@@ -71,9 +71,27 @@
             <div class="sv-card">
                 <div class="sv-title"><span>📖</span> Support de Cours</div>
 
+                {{-- File upload --}}
+                <div style="margin-bottom: 12px;">
+                    <label class="sv-label">Importer un fichier (PDF, DOC, DOCX, TXT)</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; background: rgb(var(--primary-500) / .15); border: 1px dashed rgb(var(--primary-500)); color: rgb(var(--primary-400)); cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all .2s;">
+                            📄 Choisir un fichier
+                            <input type="file" wire:model="supportFile" accept=".pdf,.doc,.docx,.txt" style="display: none;" />
+                        </label>
+                        <span wire:loading wire:target="supportFile" style="font-size: 0.8rem; color: rgb(var(--gray-400));">
+                            <svg class="animate-spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:4px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            Extraction du texte...
+                        </span>
+                    </div>
+                </div>
+
                 <div>
                     <label class="sv-label">Contenu du support de cours</label>
-                    <textarea wire:model="support" rows="22" placeholder="Collez le contenu du support de cours ici..." class="sv-textarea"></textarea>
+                    <textarea wire:model="support" rows="18" placeholder="Collez le contenu du support de cours ici ou importez un fichier ci-dessus..." class="sv-textarea"></textarea>
                 </div>
             </div>
         </div>
