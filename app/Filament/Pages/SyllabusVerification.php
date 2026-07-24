@@ -118,51 +118,85 @@ class SyllabusVerification extends Page implements HasForms
 
         $file = $this->supportFile;
         $ext = strtolower($file->getClientOriginalExtension());
+        $tmpPath = $file->getRealPath();
         $text = '';
 
-        if ($ext === 'txt') {
-            $text = file_get_contents($file->getRealPath());
-        } elseif ($ext === 'pdf') {
-            // Try pdftotext
-            $tmpPath = $file->getRealPath();
-            $outputFile = tempnam(sys_get_temp_dir(), 'pdf_') . '.txt';
-            exec("pdftotext " . escapeshellarg($tmpPath) . " " . escapeshellarg($outputFile) . " 2>&1", $output, $code);
-            if ($code === 0 && file_exists($outputFile)) {
-                $text = file_get_contents($outputFile);
-                @unlink($outputFile);
-            } else {
-                @unlink($outputFile);
-                // Fallback: try with php
-                $text = '';
-                $content = file_get_contents($tmpPath);
-                // Basic PDF text extraction
-                if (preg_match_all('/\((.*?)\)/', $content, $matches)) {
-                    $text = implode(' ', $matches[1]);
-                }
+        try {
+            if ($ext === 'txt') {
+                $text = file_get_contents($tmpPath);
+            } elseif ($ext === 'docx') {
+                $text = $this->extractDocxText($tmpPath);
+            } elseif ($ext === 'doc') {
+                $text = $this->extractDocText($tmpPath);
+            } elseif ($ext === 'pdf') {
+                $text = $this->extractPdfText($tmpPath);
             }
-        } elseif (in_array($ext, ['doc', 'docx'])) {
-            // Convert to text via LibreOffice
-            $tmpPath = $file->getRealPath();
-            $tmpDir = sys_get_temp_dir() . '/lo_' . uniqid();
-            @mkdir($tmpDir, 0755, true);
-            exec("HOME=/var/www libreoffice --headless --convert-to txt --outdir " . escapeshellarg($tmpDir) . " " . escapeshellarg($tmpPath) . " 2>&1", $output, $code);
-            $baseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.txt';
-            $txtFile = $tmpDir . '/' . $baseName;
-            if (file_exists($txtFile)) {
-                $text = file_get_contents($txtFile);
-            }
-            @array_map('unlink', glob("$tmpDir/*"));
-            @rmdir($tmpDir);
+        } catch (\Throwable $e) {
+            $text = '';
         }
 
         if (trim($text)) {
             $this->support = trim($text);
-            Notification::make()->title('Fichier importe')->body('Le contenu du support a ete extrait (' . strlen($text) . ' caracteres).')->success()->send();
+            $chars = number_format(strlen($text));
+            Notification::make()->title('Fichier importe')->body("Contenu extrait ({$chars} caracteres).")->success()->send();
         } else {
             Notification::make()->title('Extraction echouee')->body('Impossible d\'extraire le texte. Collez le contenu manuellement.')->warning()->send();
         }
 
         $this->supportFile = null;
+    }
+
+    private function extractDocxText(string $path): string
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($path) !== true) return '';
+
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+        if (!$xml) return '';
+
+        // Strip XML tags but keep paragraph breaks
+        $xml = str_replace('</w:p>', "\n", $xml);
+        $xml = str_replace('</w:tr>', "\n", $xml);
+        $text = strip_tags($xml);
+        // Clean up whitespace
+        $text = preg_replace('/[ \t]+/', ' ', $text);
+        $text = preg_replace('/\n{3,}/', "\n\n", $text);
+        return trim($text);
+    }
+
+    private function extractDocText(string $path): string
+    {
+        // Try antiword first
+        exec("antiword " . escapeshellarg($path) . " 2>/dev/null", $output, $code);
+        if ($code === 0 && !empty($output)) {
+            return implode("\n", $output);
+        }
+        // Try LibreOffice
+        $tmpDir = sys_get_temp_dir() . '/lo_' . uniqid();
+        @mkdir($tmpDir, 0755, true);
+        exec("HOME=/tmp libreoffice --headless --convert-to txt --outdir " . escapeshellarg($tmpDir) . " " . escapeshellarg($path) . " 2>&1", $out2, $code2);
+        $files = glob("$tmpDir/*.txt");
+        $text = '';
+        if (!empty($files)) {
+            $text = file_get_contents($files[0]);
+        }
+        @array_map('unlink', glob("$tmpDir/*"));
+        @rmdir($tmpDir);
+        return $text;
+    }
+
+    private function extractPdfText(string $path): string
+    {
+        $outputFile = tempnam(sys_get_temp_dir(), 'pdf_') . '.txt';
+        exec("pdftotext " . escapeshellarg($path) . " " . escapeshellarg($outputFile) . " 2>/dev/null", $output, $code);
+        if ($code === 0 && file_exists($outputFile)) {
+            $text = file_get_contents($outputFile);
+            @unlink($outputFile);
+            return $text;
+        }
+        @unlink($outputFile);
+        return '';
     }
 
     public function verify(): void
