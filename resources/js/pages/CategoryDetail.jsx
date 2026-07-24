@@ -413,7 +413,7 @@ export default function CategoryDetail() {
                                                                                 <i className={`fas fa-${viewingDoc === doc.id ? 'times' : 'eye'}`} style={{ fontSize: 10 }}></i> {viewingDoc === doc.id ? 'Fermer' : 'Lire'}
                                                                             </button>
                                                                         )}
-                                                                        {user && (
+                                                                        {user && viewingDoc === doc.id && (
                                                                             <>
                                                                                 <button onClick={() => startAi(doc, ue, 'summary')}
                                                                                     style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: isAiOpen && aiPanel.mode === 'summary' ? TEAL : '#e8f8f5', color: isAiOpen && aiPanel.mode === 'summary' ? 'white' : TEAL, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
