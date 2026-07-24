@@ -424,7 +424,7 @@ PROMPT;
         $content = $request->course_content ?? '';
         $partial = $request->partial;
 
-        $systemPrompt = "Tu es un professeur universitaire camerounais expert en pedagogie. Tu fais des resumes de cours clairs, structures et pedagogiques qui insistent sur les points essentiels. Reponds en francais.";
+        $systemPrompt = "Tu es un professeur universitaire camerounais expert en pedagogie. Tu fais des resumes de cours extremement detailles, riches en exemples concrets et en exercices pratiques corriges. Tu expliques comme si l'etudiant n'avait que ton resume pour reviser. Reponds en francais. Utilise le format Markdown.";
 
         if ($partial) {
             $userMessage = <<<PROMPT
@@ -435,32 +435,38 @@ Partie a resumer: {$partial}
 Contenu du cours:
 {$content}
 
-Fais un resume condense qui:
-1. Identifie les **concepts cles** de cette partie
-2. Explique les points les plus importants
-3. Donne des **exemples concrets** si possible
-4. Termine par les **points a retenir absolument**
+Fais un resume TRES DETAILLE qui:
+1. Identifie les **concepts cles** de cette partie avec des definitions claires
+2. Explique chaque concept avec **au moins 2 exemples concrets**
+3. Propose **2-3 exercices pratiques** avec leurs corrections detaillees
+4. Termine par les **points a retenir absolument** pour l'examen
 
 Format en Markdown.
 PROMPT;
         } else {
             $userMessage = <<<PROMPT
-Fais un resume complet du cours "{$request->course_title}" pour la filiere {$request->filiere}.
+Fais un resume TRES COMPLET et DETAILLE du cours "{$request->course_title}" pour la filiere {$request->filiere}.
 
 {$content}
 
-Le resume doit:
-1. Donner une **vue d'ensemble** du cours
-2. Identifier les **chapitres/parties principales**
-3. Pour chaque partie, donner les **points essentiels**
-4. Insister sur les **notions les plus susceptibles de tomber en examen**
-5. Terminer par une **fiche de revision express** (points cles en liste)
+Le resume doit etre RICHE et PEDAGOGIQUE:
+1. **Vue d'ensemble** du cours (objectifs, prerequis)
+2. **Chapitres/parties principales** avec pour chacune:
+   - Les concepts cles BIEN EXPLIQUES avec des definitions
+   - **Au moins 2-3 exemples concrets** pour illustrer chaque concept
+   - Les formules importantes avec explication de chaque variable
+3. **Exercices pratiques** (au moins 5) avec corrections detaillees etape par etape
+4. **Notions les plus susceptibles de tomber en examen** avec astuces
+5. **QCM rapide** (5 questions) avec reponses et explications
+6. **Fiche de revision express** (points cles en liste)
 
-Format en Markdown bien structure.
+IMPORTANT: Le resume doit etre suffisamment detaille pour qu'un etudiant puisse reviser UNIQUEMENT avec ce document. Donne beaucoup d'exemples et d'exercices corriges.
+
+Format en Markdown bien structure avec titres, sous-titres, listes.
 PROMPT;
         }
 
-        $summary = AiService::chat($systemPrompt, $userMessage, [], 4000);
+        $summary = AiService::chat($systemPrompt, $userMessage, [], 8000);
 
         return response()->json(['summary' => $summary]);
     }

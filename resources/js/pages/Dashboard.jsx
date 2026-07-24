@@ -55,7 +55,18 @@ export default function Dashboard() {
             .catch(() => {})
             .finally(() => setLoadingVideos(false));
         api.get('/api/public/categories')
-            .then(r => setCategories(r.data.data || []))
+            .then(r => {
+                const all = r.data.data || [];
+                // Prioritize categories matching user's filiere
+                if (user?.filiere) {
+                    const f = user.filiere.toLowerCase();
+                    const matching = all.filter(c => c.name.toLowerCase().includes(f) || f.includes(c.name.toLowerCase()));
+                    const rest = all.filter(c => !matching.includes(c));
+                    setCategories([...matching, ...rest]);
+                } else {
+                    setCategories(all);
+                }
+            })
             .catch(() => {});
         // Load watch history from localStorage
         const history = JSON.parse(localStorage.getItem('insam_watch_history') || '[]');
@@ -209,63 +220,34 @@ export default function Dashboard() {
                             </Link>
                         </div>
 
-                        {loadingFormations ? (
-                            <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
-                                <i className="fas fa-spinner fa-spin" style={{ fontSize: 24, marginBottom: 12 }}></i>
-                                <p>Chargement...</p>
-                            </div>
-                        ) : watchHistory.length > 0 ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-                                {watchHistory.filter(h => h.progress < 100).slice(0, 4).map((h, i) => (
-                                    <div key={i} style={{
-                                        background: 'white', borderRadius: 14, overflow: 'hidden',
-                                        border: '1px solid #f0f0f0', display: 'flex', alignItems: 'stretch',
-                                        transition: 'all .2s',
-                                    }}
-                                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(91,188,180,0.1)'; e.currentTarget.style.borderColor = TEAL; }}
-                                        onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#f0f0f0'; }}
-                                    >
-                                        <div style={{
-                                            width: 120, minHeight: 90, flexShrink: 0,
-                                            background: h.img ? `url(${h.img}) center/cover` : `linear-gradient(135deg, ${TEAL}90, ${NAVY}90)`,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}>
-                                            {!h.img && <i className="fas fa-play-circle" style={{ fontSize: 24, color: 'white' }}></i>}
-                                        </div>
-                                        <div style={{ flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                            <span style={{ fontSize: 10, background: '#e8f8f5', color: TEAL, padding: '2px 8px', borderRadius: 4, fontWeight: 600, display: 'inline-block', marginBottom: 4, width: 'fit-content' }}>
-                                                {formationsCat?.name || 'Cours'}
-                                            </span>
-                                            <h3 style={{ fontSize: 13, fontWeight: 700, color: NAVY, lineHeight: 1.4, margin: '0 0 6px' }}>
-                                                {h.formationTitle}
-                                            </h3>
-                                            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>
-                                                <i className="fas fa-bookmark" style={{ marginRight: 4 }}></i>
-                                                Dernier: {h.lastChapitre}
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <div style={{ flex: 1, height: 4, background: '#f0f0f0', borderRadius: 2, overflow: 'hidden' }}>
-                                                    <div style={{ width: `${h.progress}%`, height: '100%', background: TEAL, borderRadius: 2 }}></div>
-                                                </div>
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: TEAL }}>{h.progress}%</span>
-                                            </div>
-                                        </div>
+                        {(() => {
+                            const f = (user?.filiere || '').toLowerCase();
+                            const myCat = f ? categories.find(c => c.name.toLowerCase().includes(f) || f.includes(c.name.toLowerCase())) : null;
+                            return myCat ? (
+                                <div style={{ background: 'white', borderRadius: 16, padding: 28, border: '1px solid #f0f0f0', textAlign: 'center' }}>
+                                    <div style={{ width: 56, height: 56, borderRadius: 14, background: '#e8f8f5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 24, color: TEAL }}>
+                                        <i className={myCat.icon || 'fas fa-laptop-code'}></i>
                                     </div>
-                                ))}
-                                {watchHistory.filter(h => h.progress < 100).length === 0 && (
-                                    <div style={{ background: 'white', borderRadius: 16, padding: 36, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
-                                        <i className="fas fa-check-circle" style={{ fontSize: 28, marginBottom: 10, color: TEAL, display: 'block' }}></i>
-                                        <p style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>Tous vos cours sont termines !</p>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
-                                <i className="fas fa-book-open" style={{ fontSize: 32, marginBottom: 12, color: '#e5e7eb' }}></i>
-                                <p style={{ fontSize: 14 }}>Vous n'avez pas encore commence de cours.</p>
-                                <p style={{ fontSize: 12, color: '#b0b0b0' }}>Explorez les formations pour commencer vos cours.</p>
-                            </div>
-                        )}
+                                    <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 6 }}>{myCat.name}</h3>
+                                    <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>{myCat.courses_count || 0} cours disponibles</p>
+                                    <Link to={`/formations/${myCat.id}`} style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                                        background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                                        color: 'white', padding: '11px 24px', borderRadius: 10,
+                                        fontWeight: 600, fontSize: 13, textDecoration: 'none',
+                                        boxShadow: '0 3px 10px rgba(91,188,180,0.3)',
+                                    }}>
+                                        <i className="fas fa-book-open"></i> Acceder a mes cours
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div style={{ background: 'white', borderRadius: 16, padding: 48, textAlign: 'center', color: '#9ca3af', border: '1px solid #f0f0f0' }}>
+                                    <i className="fas fa-book-open" style={{ fontSize: 32, marginBottom: 12, color: '#e5e7eb' }}></i>
+                                    <p style={{ fontSize: 14 }}>Vous n'avez pas encore commence de cours.</p>
+                                    <p style={{ fontSize: 12, color: '#b0b0b0' }}>Explorez les formations pour commencer vos cours.</p>
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     {/* Right column */}
@@ -363,16 +345,20 @@ export default function Dashboard() {
                         </div>
 
                         {/* Formations disponibles */}
-                        {categories.length > 0 && (
+                        {categories.length > 0 && (() => {
+                            const f = (user?.filiere || '').toLowerCase();
+                            const mySpecs = f ? categories.filter(c => c.name.toLowerCase().includes(f) || f.includes(c.name.toLowerCase())) : [];
+                            const displayCats = mySpecs.length > 0 ? mySpecs : categories.slice(0, 4);
+                            return (
                             <div style={{ background: 'white', borderRadius: 16, padding: 22, border: '1px solid #f0f0f0' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                                     <h3 style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>
                                         <i className="fas fa-graduation-cap" style={{ color: TEAL, marginRight: 8 }}></i>
-                                        Mes specialites
+                                        {mySpecs.length > 0 ? 'Ma specialite' : 'Specialites disponibles'}
                                     </h3>
                                     <Link to="/formations" style={{ fontSize: 11, color: TEAL, fontWeight: 600, textDecoration: 'none' }}>Voir tout</Link>
                                 </div>
-                                {categories.slice(0, 4).map((cat, i) => (
+                                {displayCats.slice(0, 4).map((cat, i) => (
                                     <Link key={cat.id} to={`/formations/${cat.id}`} style={{
                                         display: 'flex', alignItems: 'center', gap: 10,
                                         padding: '9px 0',
@@ -399,7 +385,8 @@ export default function Dashboard() {
                                     </Link>
                                 ))}
                             </div>
-                        )}
+                            );
+                        })()}
                     </div>
                 </div>
 

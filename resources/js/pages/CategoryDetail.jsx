@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useLang } from '../context/LangContext';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +46,7 @@ export default function CategoryDetail() {
     const { id } = useParams();
     const { t } = useLang();
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [category, setCategory] = useState(null);
     const [debouches, setDebouches] = useState([]);
     const [certifications, setCertifications] = useState([]);
@@ -415,11 +416,11 @@ export default function CategoryDetail() {
                                                                         )}
                                                                         {user && viewingDoc === doc.id && (
                                                                             <>
-                                                                                <button onClick={() => startAi(doc, ue, 'summary')}
-                                                                                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: isAiOpen && aiPanel.mode === 'summary' ? TEAL : '#e8f8f5', color: isAiOpen && aiPanel.mode === 'summary' ? 'white' : TEAL, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                                                                                    title="Resume IA du cours"
+                                                                                <button onClick={() => navigate(`/cours/${doc.id}/revision?title=${encodeURIComponent(doc.title)}&ue=${encodeURIComponent(ue.nom)}&file=${encodeURIComponent(doc.file_path || '')}&cat=${id}`)}
+                                                                                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: TEAL, color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                                                                                    title="Reviser avec l'IA"
                                                                                 >
-                                                                                    <i className="fas fa-magic" style={{ fontSize: 10 }}></i> Resume
+                                                                                    <i className="fas fa-magic" style={{ fontSize: 10 }}></i> Reviser avec IA
                                                                                 </button>
                                                                                 <button onClick={() => startAi(doc, ue, 'quiz')}
                                                                                     style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: isAiOpen && aiPanel.mode === 'quiz' ? '#F5A623' : '#fff8ec', color: isAiOpen && aiPanel.mode === 'quiz' ? 'white' : '#F5A623', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
