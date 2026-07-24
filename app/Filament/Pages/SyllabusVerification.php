@@ -34,6 +34,23 @@ class SyllabusVerification extends Page implements HasForms
     public bool $loading = false;
     public ?int $viewingHistoryId = null;
 
+    protected $queryString = ['doc'];
+    public ?string $doc = null;
+
+    public function mount(): void
+    {
+        // Pre-load document if ?doc=ID is in URL
+        if ($this->doc) {
+            $document = KnowledgeDocument::find($this->doc);
+            if ($document) {
+                $this->selectedCategory = $document->category_id ? (string) $document->category_id : null;
+                $this->selectedDocument = (string) $document->id;
+                $this->syllabus = $document->content ?? '';
+                $this->courseTitle = $document->title ?? '';
+            }
+        }
+    }
+
     public function getDocumentsProperty(): array
     {
         if (!$this->selectedCategory) return [];
