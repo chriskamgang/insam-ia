@@ -189,7 +189,13 @@ export default function CategoryDetail() {
                             <i className={category.icon || 'fas fa-laptop-code'}></i>
                         </div>
                         <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                                {category.filiere_name && (
+                                    <Link to="/formations" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', background: 'rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.2)', textDecoration: 'none' }}>
+                                        <i className="fas fa-layer-group" style={{ marginRight: 5, fontSize: 10 }}></i>
+                                        {category.filiere_name}
+                                    </Link>
+                                )}
                                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: TEAL, textTransform: 'uppercase', background: 'rgba(91,188,180,0.15)', padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(91,188,180,0.3)' }}>Specialite</span>
                             </div>
                             <h1 className="cd-hero-title" style={{ fontWeight: 800, color: 'white', margin: '0 0 14px', lineHeight: 1.2 }}>{category.name}</h1>
