@@ -348,27 +348,6 @@ export default function VideoPlayer() {
                                         Toutes les videos
                                     </Link>
                                 )}
-                                {video.category && (
-                                    <Link
-                                        to={`/formations/${video.category?.id || video.category_id}/roadmap`}
-                                        style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 7,
-                                            fontSize: 13,
-                                            fontWeight: 600,
-                                            color: '#1B2A4A',
-                                            background: 'white',
-                                            border: '1.5px solid #e5e7eb',
-                                            padding: '10px 20px',
-                                            borderRadius: 50,
-                                            textDecoration: 'none',
-                                        }}
-                                    >
-                                        <i className="fas fa-route"></i>
-                                        Voir le parcours
-                                    </Link>
-                                )}
                             </div>
                         </div>
 

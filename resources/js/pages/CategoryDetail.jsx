@@ -495,7 +495,7 @@ export default function CategoryDetail() {
                     <div className="cd-cta-bar" style={{ background: `linear-gradient(135deg, ${NAVY}, #2d4270)`, borderRadius: 20 }}>
                         <div>
                             <h3 style={{ fontSize: 20, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>Commencer l'apprentissage</h3>
-                            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>Acces aux cours et au parcours de formation</p>
+                            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>Acces aux cours et aux debouches de cette specialite</p>
                         </div>
                         <div className="cd-cta-btns">
                             <button onClick={() => { setActiveTab('cours'); setTimeout(() => document.getElementById('section-cours')?.scrollIntoView({ behavior: 'smooth' }), 100); }}
