@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Category extends Model
 {
-    protected $fillable = ['name', 'description', 'icon', 'image', 'api_slug', 'sort_order'];
+    protected $fillable = ['name', 'filiere_name', 'description', 'icon', 'image', 'api_slug', 'sort_order'];
 
     public function videos(): HasMany { return $this->hasMany(Video::class); }
     public function roadmapSteps(): HasMany { return $this->hasMany(RoadmapStep::class); }
