@@ -8,8 +8,19 @@ const TEAL = '#5BBCB4';
 const NAVY = '#1B2A4A';
 const W = { maxWidth: 900, margin: '0 auto', padding: '0 24px' };
 
+const css = `
+.rev-tabs { display:flex; border-radius:14px; overflow:hidden; border:1px solid #e5e7eb; }
+.rev-tab { flex:1; padding:18px 20px; border:none; cursor:pointer; font-family:inherit; font-size:14px; font-weight:600; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:10px; }
+.rev-tab:first-child { border-right:1px solid #e5e7eb; }
+.rev-tab-active { background:linear-gradient(135deg,#5BBCB4,#3da89e); color:white; }
+.rev-tab-inactive { background:white; color:#6b7280; }
+.rev-tab-inactive:hover { background:#f9fafb; color:#1B2A4A; }
+@media(max-width:600px){ .rev-tab { padding:14px 10px; font-size:13px; } }
+`;
+
 export default function RevisionProgram() {
     const { user } = useAuth();
+    const [activeTab, setActiveTab] = useState('bts');
     const [revisionType, setRevisionType] = useState(null);
     const [revisionPlan, setRevisionPlan] = useState(null);
     const [revisionLoading, setRevisionLoading] = useState(false);
@@ -19,10 +30,13 @@ export default function RevisionProgram() {
 
     useEffect(() => {
         api.get('/api/revision-plan/options').then(r => setRevisionOptions(r.data)).catch(() => {});
+        // Auto-load BTS plan on mount
+        loadBtsRevision();
     }, []);
 
     const loadBtsRevision = async () => {
         setRevisionLoading(true);
+        setRevisionPlan(null);
         try {
             const r = await api.get('/api/revision-plan/bts');
             setRevisionPlan(r.data);
@@ -33,6 +47,7 @@ export default function RevisionProgram() {
 
     const loadSemesterRevision = async () => {
         setRevisionLoading(true);
+        setRevisionPlan(null);
         try {
             const r = await api.post('/api/revision-plan/semester', { annee: selectedAnnee, semestre: selectedSemestre });
             setRevisionPlan(r.data);
@@ -41,8 +56,16 @@ export default function RevisionProgram() {
         finally { setRevisionLoading(false); }
     };
 
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setRevisionPlan(null);
+        setRevisionType(null);
+        if (tab === 'bts') loadBtsRevision();
+    };
+
     return (
         <div style={{ background: '#F8FAFB', minHeight: '100vh' }}>
+            <style>{css}</style>
             {/* Hero */}
             <section style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #263d6b 100%)`, padding: '44px 0 36px' }}>
                 <div style={W}>
@@ -51,7 +74,7 @@ export default function RevisionProgram() {
                     </Link>
                     <h1 style={{ fontSize: 28, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>
                         <i className="fas fa-clipboard-list" style={{ color: TEAL, marginRight: 12 }}></i>
-                        Programme de revision
+                        Revision intelligente
                     </h1>
                     <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, margin: 0 }}>
                         Plan personnalise base sur vos evaluations - {user?.filiere || 'Votre filiere'}
@@ -61,68 +84,55 @@ export default function RevisionProgram() {
 
             <section style={{ padding: '32px 0 60px' }}>
                 <div style={W}>
-                    {/* Choice: BTS or Semester */}
-                    <div style={{ background: 'white', borderRadius: 16, padding: 24, border: '1px solid #f0f0f0', marginBottom: 24 }}>
-                        <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 16 }}>
-                            <i className="fas fa-route" style={{ color: TEAL, marginRight: 8 }}></i>
-                            Choisissez votre type de revision
-                        </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                            <button onClick={loadBtsRevision} style={{
-                                padding: 24, borderRadius: 14, border: `2px solid ${revisionType === 'bts' ? TEAL : '#e5e7eb'}`,
-                                background: revisionType === 'bts' ? '#e8f8f5' : 'white',
-                                cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', transition: 'all .2s',
-                            }}>
-                                <i className="fas fa-graduation-cap" style={{ fontSize: 28, color: TEAL, marginBottom: 10, display: 'block' }}></i>
-                                <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Cycle BTS</div>
-                                <p style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>
-                                    Toutes les epreuves du BTS : evaluees et non evaluees.
-                                    Priorise les matieres ou vous avez des lacunes.
-                                </p>
-                            </button>
-                            <button onClick={() => setRevisionType('semester_choice')} style={{
-                                padding: 24, borderRadius: 14, border: `2px solid ${revisionType?.startsWith('semester') ? TEAL : '#e5e7eb'}`,
-                                background: revisionType?.startsWith('semester') ? '#e8f8f5' : 'white',
-                                cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', transition: 'all .2s',
-                            }}>
-                                <i className="fas fa-calendar-alt" style={{ fontSize: 28, color: '#F5A623', marginBottom: 10, display: 'block' }}></i>
-                                <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Par semestre</div>
-                                <p style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>
-                                    Preparez-vous pour les examens d'un semestre specifique.
-                                    Choisissez l'annee et le semestre.
-                                </p>
-                            </button>
-                        </div>
-
-                        {/* Semester selector */}
-                        {revisionType === 'semester_choice' && (
-                            <div style={{ marginTop: 20, padding: 20, background: '#f9fafb', borderRadius: 12 }}>
-                                <h4 style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 12 }}>
-                                    Selectionnez l'annee et le semestre
-                                </h4>
-                                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                                    <select value={selectedAnnee} onChange={e => setSelectedAnnee(Number(e.target.value))}
-                                        style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit' }}>
-                                        {(revisionOptions?.annees || [1, 2, 3]).map(a => (
-                                            <option key={a} value={a}>{a === 1 ? '1ere' : `${a}eme`} annee</option>
-                                        ))}
-                                    </select>
-                                    <select value={selectedSemestre} onChange={e => setSelectedSemestre(Number(e.target.value))}
-                                        style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit' }}>
-                                        <option value={1}>Semestre 1</option>
-                                        <option value={2}>Semestre 2</option>
-                                    </select>
-                                    <button onClick={loadSemesterRevision} style={{
-                                        padding: '10px 24px', borderRadius: 10, border: 'none',
-                                        background: TEAL, color: 'white', fontWeight: 700, fontSize: 14,
-                                        cursor: 'pointer', fontFamily: 'inherit',
-                                    }}>
-                                        <i className="fas fa-search" style={{ marginRight: 8 }}></i>Voir le plan
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                    {/* Tab bar */}
+                    <div className="rev-tabs" style={{ marginBottom: 28, background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                        <button
+                            className={`rev-tab ${activeTab === 'bts' ? 'rev-tab-active' : 'rev-tab-inactive'}`}
+                            onClick={() => handleTabChange('bts')}
+                        >
+                            <i className="fas fa-graduation-cap"></i>
+                            Revision pour le BTS
+                        </button>
+                        <button
+                            className={`rev-tab ${activeTab === 'semester' ? 'rev-tab-active' : 'rev-tab-inactive'}`}
+                            onClick={() => handleTabChange('semester')}
+                        >
+                            <i className="fas fa-calendar-alt"></i>
+                            Revision par semestre
+                        </button>
                     </div>
+
+                    {/* Semester selector (only in semester tab) */}
+                    {activeTab === 'semester' && (
+                        <div style={{ background: 'white', borderRadius: 14, padding: 22, border: '1px solid #f0f0f0', marginBottom: 24 }}>
+                            <h4 style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <i className="fas fa-sliders-h" style={{ color: '#F5A623' }}></i>
+                                Choisissez l'annee et le semestre
+                            </h4>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <select value={selectedAnnee} onChange={e => setSelectedAnnee(Number(e.target.value))}
+                                    style={{ padding: '10px 16px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit', cursor: 'pointer' }}>
+                                    {(revisionOptions?.annees || [1, 2, 3]).map(a => (
+                                        <option key={a} value={a}>{a === 1 ? '1ere' : `${a}eme`} annee</option>
+                                    ))}
+                                </select>
+                                <select value={selectedSemestre} onChange={e => setSelectedSemestre(Number(e.target.value))}
+                                    style={{ padding: '10px 16px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit', cursor: 'pointer' }}>
+                                    <option value={1}>Semestre 1</option>
+                                    <option value={2}>Semestre 2</option>
+                                </select>
+                                <button onClick={loadSemesterRevision} style={{
+                                    padding: '10px 24px', borderRadius: 10, border: 'none',
+                                    background: `linear-gradient(135deg, ${TEAL}, #3da89e)`,
+                                    color: 'white', fontWeight: 700, fontSize: 14,
+                                    cursor: 'pointer', fontFamily: 'inherit',
+                                    boxShadow: '0 3px 10px rgba(91,188,180,0.3)',
+                                }}>
+                                    <i className="fas fa-search" style={{ marginRight: 8 }}></i>Voir le plan
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Loading */}
                     {revisionLoading && (

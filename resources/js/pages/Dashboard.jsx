@@ -13,6 +13,9 @@ const css = `
 .db-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
 .db-quick { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
 .db-courses { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+.db-perf-tabs { display:flex; border-bottom:2px solid #f0f0f0; margin-bottom:18px; }
+.db-perf-tab { padding:10px 18px; border:none; border-bottom:2px solid transparent; background:transparent; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600; color:#9ca3af; transition:all .15s; margin-bottom:-2px; }
+.db-perf-tab-active { color:#5BBCB4; border-bottom-color:#5BBCB4; }
 @media(max-width:1024px){
   .db-grid { grid-template-columns:1fr 280px; }
   .db-stats { grid-template-columns:repeat(2,1fr); }
@@ -35,6 +38,10 @@ export default function Dashboard() {
     const [statsData, setStatsData] = useState(null);
     const [myCourses, setMyCourses] = useState([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
+    const [perfTab, setPerfTab] = useState('bts');
+    const [btsPerfData, setBtsPerfData] = useState(null);
+    const [semesterPerfData, setSemesterPerfData] = useState(null);
+    const [perfLoading, setPerfLoading] = useState(true);
 
     const firstName = user?.name?.split(' ')[0] || 'Etudiant';
     const hour = new Date().getHours();
@@ -47,6 +54,13 @@ export default function Dashboard() {
         api.get('/api/progress/overview')
             .then(r => setStatsData(r.data?.data || r.data || null))
             .catch(() => {});
+        Promise.all([
+            api.get('/api/course-progress/bts').catch(() => ({ data: null })),
+            api.get('/api/course-progress/ue').catch(() => ({ data: null })),
+        ]).then(([btsRes, ueRes]) => {
+            setBtsPerfData(btsRes.data);
+            setSemesterPerfData(ueRes.data);
+        }).finally(() => setPerfLoading(false));
     }, []);
 
     // Load courses for user's specialty
@@ -355,9 +369,125 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </div>
+
+                {/* ── Performance Section ── */}
+                <div style={{ marginTop: 32 }}>
+                    <h2 style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 16 }}>
+                        <i className="fas fa-chart-bar" style={{ color: TEAL, marginRight: 8, fontSize: 14 }}></i>
+                        Mes performances
+                    </h2>
+                    <div style={{ background: 'white', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden' }}>
+                        <div className="db-perf-tabs" style={{ padding: '0 18px' }}>
+                            <button className={`db-perf-tab${perfTab === 'bts' ? ' db-perf-tab-active' : ''}`} onClick={() => setPerfTab('bts')}>
+                                <i className="fas fa-graduation-cap" style={{ marginRight: 6 }}></i>Performance BTS
+                            </button>
+                            <button className={`db-perf-tab${perfTab === 'semester' ? ' db-perf-tab-active' : ''}`} onClick={() => setPerfTab('semester')}>
+                                <i className="fas fa-calendar-alt" style={{ marginRight: 6 }}></i>Performance par semestre
+                            </button>
+                        </div>
+                        <div style={{ padding: '4px 18px 20px' }}>
+                            {perfLoading ? (
+                                <div style={{ textAlign: 'center', padding: 30, color: '#9ca3af' }}>
+                                    <div style={{ width: 28, height: 28, border: '3px solid #e5e7eb', borderTopColor: TEAL, borderRadius: '50%', margin: '0 auto 8px', animation: 'spin 0.8s linear infinite' }}></div>
+                                    <span style={{ fontSize: 13 }}>Chargement...</span>
+                                </div>
+                            ) : perfTab === 'bts' ? (
+                                <BtsPerformance data={btsPerfData} />
+                            ) : (
+                                <SemesterPerformance data={semesterPerfData} />
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+    );
+}
+
+function ScoreBar({ score, max = 100, color = '#5BBCB4' }) {
+    const pct = Math.min(100, Math.round((score / max) * 100));
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+            <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#f0f0f0', overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: color, transition: 'width .6s ease' }}></div>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color, minWidth: 32, textAlign: 'right' }}>{score}%</span>
+        </div>
+    );
+}
+
+function BtsPerformance({ data }) {
+    const items = data?.exams || data?.data || data?.progression || [];
+    if (!items.length) {
+        return (
+            <div style={{ textAlign: 'center', padding: '28px 0', color: '#9ca3af' }}>
+                <i className="fas fa-graduation-cap" style={{ fontSize: 32, color: '#e5e7eb', marginBottom: 10, display: 'block' }}></i>
+                <p style={{ fontSize: 13 }}>Aucune epreuve BTS evaluee pour le moment.</p>
+                <Link to="/bibliotheque" style={{ fontSize: 12, color: '#5BBCB4', fontWeight: 600, textDecoration: 'none' }}>
+                    Acceder a la bibliotheque &rarr;
+                </Link>
+            </div>
+        );
+    }
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {items.slice(0, 8).map((item, i) => {
+                const score = item.score ?? item.avg_score ?? item.note ?? 0;
+                const color = score >= 70 ? '#5BBCB4' : score >= 50 ? '#F5A623' : '#ef4444';
+                return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ minWidth: 170, fontSize: 12, fontWeight: 600, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title || item.matiere || item.ue_name || `Epreuve ${i + 1}`}
+                        </div>
+                        <ScoreBar score={Math.round(score)} color={color} />
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function SemesterPerformance({ data }) {
+    const semesters = data?.semesters || data?.data || [];
+    if (!semesters.length) {
+        return (
+            <div style={{ textAlign: 'center', padding: '28px 0', color: '#9ca3af' }}>
+                <i className="fas fa-calendar-alt" style={{ fontSize: 32, color: '#e5e7eb', marginBottom: 10, display: 'block' }}></i>
+                <p style={{ fontSize: 13 }}>Aucune progression par semestre disponible.</p>
+                <Link to="/revision" style={{ fontSize: 12, color: '#5BBCB4', fontWeight: 600, textDecoration: 'none' }}>
+                    Voir mon plan de revision &rarr;
+                </Link>
+            </div>
+        );
+    }
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {semesters.map((sem, si) => (
+                <div key={si}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1B2A4A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ background: '#f0f4ff', color: '#1B2A4A', padding: '2px 10px', borderRadius: 20, fontSize: 11 }}>
+                            {sem.label || `Semestre ${sem.semestre}`}
+                        </span>
+                        {sem.avg_score != null && (
+                            <span style={{ fontSize: 11, color: '#9ca3af' }}>moy. {Math.round(sem.avg_score)}%</span>
+                        )}
+                    </div>
+                    {(sem.ues || sem.items || []).slice(0, 5).map((ue, ui) => {
+                        const score = ue.score ?? ue.avg_score ?? 0;
+                        const color = score >= 70 ? '#5BBCB4' : score >= 50 ? '#F5A623' : '#ef4444';
+                        return (
+                            <div key={ui} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+                                <div style={{ minWidth: 140, fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {ue.nom || ue.name || ue.title}
+                                </div>
+                                <ScoreBar score={Math.round(score)} color={color} />
+                            </div>
+                        );
+                    })}
+                </div>
+            ))}
         </div>
     );
 }

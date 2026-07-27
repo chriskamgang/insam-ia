@@ -72,22 +72,34 @@ function ExamCard({ exam, onCorrect, onTake }) {
                 {exam.matiere && <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}><i className="fas fa-book" style={{ marginRight: 6, color: '#9ca3af' }}></i>{exam.matiere}</div>}
                 {exam.filiere && <div style={{ fontSize: 12, color: '#6b7280' }}><i className="fas fa-graduation-cap" style={{ marginRight: 6, color: '#9ca3af' }}></i>{exam.filiere}</div>}
             </div>
-            <div style={{ padding: '10px 18px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: 8 }}>
-                <button onClick={() => onTake(exam)} style={{
-                    flex: 1, padding: '8px', borderRadius: 8, border: 'none',
-                    background: `linear-gradient(135deg, ${TEAL}, #3da89e)`, color: 'white',
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                    boxShadow: '0 2px 6px rgba(91,188,180,0.30)',
-                }}>
-                    <i className="fas fa-pen-fancy" style={{ marginRight: 5 }}></i>Traiter
-                </button>
-                <button onClick={() => onCorrect(exam)} style={{
-                    flex: 1, padding: '8px', borderRadius: 8, border: `1.5px solid ${TEAL}`,
-                    background: 'white', color: TEAL, fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                    <i className="fas fa-check-double" style={{ marginRight: 5 }}></i>{t('library.ai_correction')}
-                </button>
+            <div style={{ padding: '10px 18px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: 8, flexDirection: 'column' }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => onTake(exam)} style={{
+                        flex: 1, padding: '8px', borderRadius: 8, border: 'none',
+                        background: `linear-gradient(135deg, ${TEAL}, #3da89e)`, color: 'white',
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                        boxShadow: '0 2px 6px rgba(91,188,180,0.30)',
+                    }}>
+                        <i className="fas fa-pen-fancy" style={{ marginRight: 5 }}></i>Traiter
+                    </button>
+                    <button onClick={() => onCorrect(exam)} style={{
+                        flex: 1, padding: '8px', borderRadius: 8, border: `1.5px solid ${TEAL}`,
+                        background: 'white', color: TEAL, fontSize: 12, fontWeight: 600,
+                        cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                        <i className="fas fa-check-double" style={{ marginRight: 5 }}></i>{t('library.ai_correction')}
+                    </button>
+                </div>
+                {exam.source !== 'admin' && !exam.has_correction && (
+                    <button onClick={() => onCorrect(exam)} style={{
+                        width: '100%', padding: '8px', borderRadius: 8, border: 'none',
+                        background: `linear-gradient(135deg, #8B5CF6, #7c3aed)`, color: 'white',
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                        boxShadow: '0 2px 6px rgba(139,92,246,0.30)',
+                    }}>
+                        <i className="fas fa-magic" style={{ marginRight: 5 }}></i>Obtenir une correction IA
+                    </button>
+                )}
             </div>
         </div>
     );
@@ -544,11 +556,31 @@ export default function Library() {
                                 </button>
                             </div>
                         ) : (
-                            <div className="lib-grid3">
-                                {filtered.map(exam => (
-                                    <ExamCard key={exam.id} exam={exam} onCorrect={handleCorrect} onTake={setTakingExam} />
+                            <>
+                                {Object.entries(
+                                    filtered.reduce((groups, exam) => {
+                                        const key = exam.filiere || 'Autres spécialités';
+                                        if (!groups[key]) groups[key] = [];
+                                        groups[key].push(exam);
+                                        return groups;
+                                    }, {})
+                                ).sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([filiere, examList]) => (
+                                    <div key={filiere} style={{ marginBottom: 36 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, paddingBottom: 10, borderBottom: `2px solid ${TEAL}25` }}>
+                                            <div style={{ width: 4, height: 22, borderRadius: 2, background: TEAL }}></div>
+                                            <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>{filiere}</h3>
+                                            <span style={{ fontSize: 11, background: `${TEAL}15`, color: TEAL, padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>
+                                                {examList.length} sujet{examList.length > 1 ? 's' : ''}
+                                            </span>
+                                        </div>
+                                        <div className="lib-grid3">
+                                            {examList.map(exam => (
+                                                <ExamCard key={exam.id} exam={exam} onCorrect={handleCorrect} onTake={setTakingExam} />
+                                            ))}
+                                        </div>
+                                    </div>
                                 ))}
-                            </div>
+                            </>
                         )}
                     </>
                 )}

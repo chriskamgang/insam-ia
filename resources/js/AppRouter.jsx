@@ -31,6 +31,7 @@ import RoadmapStepDetail from './pages/RoadmapStepDetail';
 import RevisionProgram from './pages/RevisionProgram';
 import Orientation from './pages/Orientation';
 import CourseRevision from './pages/CourseRevision';
+import VideosTP from './pages/VideosTP';
 
 function ProtectedRoute({ children }) {
     const { user, loading } = useAuth();
@@ -95,6 +96,7 @@ export default function AppRouter() {
                     <Route path="/communaute" element={<ProtectedRoute><Community /></ProtectedRoute>} />
                     <Route path="/revision" element={<ProtectedRoute><RevisionProgram /></ProtectedRoute>} />
                     <Route path="/cours/:docId/revision" element={<ProtectedRoute><CourseRevision /></ProtectedRoute>} />
+                    <Route path="/videos-tp" element={<VideosTP />} />
                     <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 </Routes>
             </main>
