@@ -56,6 +56,7 @@ export default function CategoryDetail() {
     const [activeTab, setActiveTab] = useState(null);
     const [expandedUe, setExpandedUe] = useState(null);
     const [viewingDoc, setViewingDoc] = useState(null); // docId of PDF being viewed inline
+    const [scrollTarget, setScrollTarget] = useState(null);
 
     useEffect(() => {
         setLoading(true);
@@ -73,6 +74,16 @@ export default function CategoryDetail() {
             .catch(() => {})
             .finally(() => setLoading(false));
     }, [id]);
+
+    // Scroll to section after it renders
+    useEffect(() => {
+        if (!scrollTarget) return;
+        const el = document.getElementById(`section-${scrollTarget}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setScrollTarget(null);
+        }
+    }, [scrollTarget, activeTab]);
 
     // Fetch courses when cours tab is opened
     useEffect(() => {
@@ -243,9 +254,7 @@ export default function CategoryDetail() {
                                     onClick={() => {
                                         const opening = activeTab !== card.key;
                                         setActiveTab(opening ? card.key : null);
-                                        if (opening) {
-                                            setTimeout(() => document.getElementById(`section-${card.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
-                                        }
+                                        if (opening) setScrollTarget(card.key);
                                     }}
                                     style={{ background: activeTab === card.key ? `${card.color}08` : 'white', borderRadius: 16, padding: '26px 22px', textAlign: 'left', border: activeTab === card.key ? `1.5px solid ${card.color}` : '1px solid #f0f0f0', transition: 'all .2s', cursor: 'pointer', width: '100%' }}
                                     onMouseEnter={e => { if (activeTab !== card.key) { e.currentTarget.style.boxShadow = `0 8px 28px ${card.color}22`; e.currentTarget.style.borderColor = card.color; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
