@@ -73,12 +73,12 @@ export default function Dashboard() {
     ];
 
     const quickActions = [
-        { icon: 'fas fa-robot', label: 'Assistant IA', to: '/assistant', color: TEAL, bg: 'linear-gradient(135deg, #e8f8f5, #d1f2ed)' },
-        { icon: 'fas fa-file-alt', label: 'Epreuves', to: '/bibliotheque', color: '#8B5CF6', bg: 'linear-gradient(135deg, #f5f3ff, #ede9fe)' },
-        { icon: 'fas fa-clipboard-check', label: 'Evaluations', to: '/evaluations', color: '#F5A623', bg: 'linear-gradient(135deg, #fff8ec, #fef3c7)' },
+        { icon: 'fas fa-book', label: 'Bibliotheque intelligente', to: '/bibliotheque', color: '#8B5CF6', bg: 'linear-gradient(135deg, #f5f3ff, #ede9fe)' },
+        { icon: 'fas fa-clipboard-list', label: 'Revision intelligente', to: '/revision', color: TEAL, bg: 'linear-gradient(135deg, #e8f8f5, #d1f2ed)' },
+        { icon: 'fas fa-layer-group', label: 'Fiches de revision', to: '/fiches', color: '#F5A623', bg: 'linear-gradient(135deg, #fff8ec, #fef3c7)' },
         { icon: 'fas fa-comments', label: 'Communaute', to: '/communaute', color: '#10B981', bg: 'linear-gradient(135deg, #ecfdf5, #d1fae5)' },
         { icon: 'fas fa-graduation-cap', label: 'Formations', to: '/formations', color: NAVY, bg: 'linear-gradient(135deg, #f0f4ff, #e0e7ff)' },
-        { icon: 'fas fa-chart-line', label: 'Progression', to: '/progression', color: '#E74C3C', bg: 'linear-gradient(135deg, #fef2f2, #fee2e2)' },
+        { icon: 'fas fa-calendar-alt', label: 'Planification', to: '/planification', color: '#E74C3C', bg: 'linear-gradient(135deg, #fef2f2, #fee2e2)' },
     ];
 
     return (
@@ -98,13 +98,13 @@ export default function Dashboard() {
                             {user?.niveau ? ` · ${user.niveau}` : ''}
                         </p>
                     </div>
-                    <Link to="/assistant" style={{
+                    <Link to="/revision" style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         background: TEAL, color: 'white', padding: '12px 22px',
                         borderRadius: 12, fontWeight: 700, fontSize: 13,
                         textDecoration: 'none', boxShadow: '0 4px 14px rgba(91,188,180,0.35)',
                     }}>
-                        <i className="fas fa-robot"></i> Assistant IA
+                        <i className="fas fa-clipboard-list"></i> Revision intelligente
                     </Link>
                 </div>
             </section>
@@ -329,8 +329,8 @@ export default function Dashboard() {
                                 Liens utiles
                             </h3>
                             {[
-                                { icon: 'fas fa-clipboard-list', label: 'Programme de revision', to: '/revision', color: '#8B5CF6' },
-                                { icon: 'fas fa-store', label: 'Marketplace', to: '/marketplace', color: '#F5A623' },
+                                { icon: 'fas fa-clock', label: 'Simulation d\'examen', to: '/simulation', color: '#8B5CF6' },
+                                { icon: 'fas fa-bullseye', label: 'Predictions d\'examens', to: '/predictions', color: '#F5A623' },
                                 { icon: 'fas fa-compass', label: 'Test d\'orientation', to: '/orientation', color: '#10B981' },
                             ].map((lk, i) => (
                                 <Link key={i} to={lk.to} style={{
