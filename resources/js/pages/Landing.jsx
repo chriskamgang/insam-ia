@@ -300,26 +300,46 @@ export default function Landing() {
                                 {t('hero.cta2')}
                             </Link>
                         </div>
-                        <Link
-                            to="/orientation"
-                            style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 10,
-                                padding: '13px 28px',
-                                background: 'linear-gradient(135deg, #F5A623, #e8961a)',
-                                color: 'white',
-                                borderRadius: 50,
-                                fontWeight: 700,
-                                fontSize: 15,
-                                textDecoration: 'none',
-                                transition: 'all .2s',
-                                boxShadow: '0 4px 16px rgba(245,166,35,0.35)',
-                                marginTop: 14,
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                        >
-                            <i className="fas fa-compass"></i> Test d'orientation
-                        </Link>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
+                            <Link
+                                to="/orientation"
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 10,
+                                    padding: '13px 28px',
+                                    background: 'linear-gradient(135deg, #F5A623, #e8961a)',
+                                    color: 'white',
+                                    borderRadius: 50,
+                                    fontWeight: 700,
+                                    fontSize: 15,
+                                    textDecoration: 'none',
+                                    transition: 'all .2s',
+                                    boxShadow: '0 4px 16px rgba(245,166,35,0.35)',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                            >
+                                <i className="fas fa-compass"></i> Test d'orientation
+                            </Link>
+                            <Link
+                                to="/videos-tp"
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 10,
+                                    padding: '13px 28px',
+                                    background: 'linear-gradient(135deg, #8B5CF6, #7c3aed)',
+                                    color: 'white',
+                                    borderRadius: 50,
+                                    fontWeight: 700,
+                                    fontSize: 15,
+                                    textDecoration: 'none',
+                                    transition: 'all .2s',
+                                    boxShadow: '0 4px 16px rgba(139,92,246,0.35)',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                            >
+                                <i className="fas fa-film"></i> La pratique en image
+                            </Link>
+                        </div>
 
                         {/* Mini trust row */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 36 }}>
