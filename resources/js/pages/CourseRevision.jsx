@@ -173,7 +173,7 @@ export default function CourseRevision() {
     const categoryId = params.get('cat') || '';
     const initialTab = params.get('tab') || 'course';
 
-    const [document, setDocument] = useState(null);
+    const [courseDoc, setCourseDoc] = useState(null);
     const [docLoading, setDocLoading] = useState(true);
     const [generatedCourse, setGeneratedCourse] = useState(null);
     const [courseGenerating, setCourseGenerating] = useState(false);
@@ -229,7 +229,7 @@ export default function CourseRevision() {
         api.get(`/api/public/documents/${docId}`)
             .then(res => {
                 const doc = res.data.document || res.data.data || res.data;
-                setDocument(doc);
+                setCourseDoc(doc);
                 // Auto-generate full course from syllabus if no PDF
                 if (doc && !doc.file_path && doc.content) {
                     generateFullCourse(doc);
@@ -258,7 +258,7 @@ export default function CourseRevision() {
 
     const startTTS = () => {
         if (!ttsSupported) return;
-        const text = document?.content || generatedCourse || '';
+        const text = courseDoc?.content || generatedCourse || '';
         if (!text) return;
         window.speechSynthesis.cancel();
         const utter = new window.SpeechSynthesisUtterance(text.replace(/[#*`]/g, ''));
@@ -293,10 +293,10 @@ export default function CourseRevision() {
         if (current) chapters.push(current);
         // If no headings found, treat whole doc as one chapter
         if (chapters.length === 0 && content.trim()) {
-            chapters.push({ title: document?.title || title, content });
+            chapters.push({ title: courseDoc?.title || title, content });
         }
         return chapters;
-    }, [document, title]);
+    }, [courseDoc, title]);
 
     const chapters = parseChapters(generatedCourse || courseContent);
 
@@ -318,7 +318,7 @@ export default function CourseRevision() {
             const res = await api.post('/api/exams/generate-audio-script', {
                 chapter_title: ch.title,
                 chapter_content: ch.content,
-                course_title: document?.title || title,
+                course_title: courseDoc?.title || title,
                 filiere: ueName,
             });
             setAudioScript(res.data.script || '');
@@ -356,7 +356,7 @@ export default function CourseRevision() {
             const res = await api.post('/api/exams/generate-video-slides', {
                 chapter_title: ch.title,
                 chapter_content: ch.content,
-                course_title: document?.title || title,
+                course_title: courseDoc?.title || title,
                 filiere: ueName,
             });
             setVideoSlides(res.data.slides || []);
@@ -412,11 +412,11 @@ export default function CourseRevision() {
     const generateSummary = async () => {
         if (summaryLoading) return;
         setSummaryLoading(true);
-        const docContent = document?.content || '';
+        const docContent = courseDoc?.content || '';
         setMessages(prev => [...prev, { role: 'system', content: 'Generation du resume detaille en cours...' }]);
         try {
             const res = await api.post('/api/exams/summarize-course', {
-                course_title: document?.title || title,
+                course_title: courseDoc?.title || title,
                 course_content: docContent,
                 filiere: ueName,
             });
@@ -436,7 +436,7 @@ export default function CourseRevision() {
         setMessages(prev => [...prev, { role: 'user', content: q }]);
         setLoading(true);
         try {
-            const docContent = document?.content || '';
+            const docContent = courseDoc?.content || '';
             const context = messages
                 .filter(m => m.role !== 'system')
                 .slice(-6)
@@ -444,7 +444,7 @@ export default function CourseRevision() {
                 .join('\n\n');
 
             const res = await api.post('/api/chat', {
-                message: `Contexte: L'etudiant revise le cours "${document?.title || title}" (UE: ${ueName}).\n\nContenu du cours:\n${docContent}\n\nConversation precedente:\n${context}\n\nQuestion: ${q}\n\nReponds de maniere pedagogique. Utilise le format Markdown.`,
+                message: `Contexte: L'etudiant revise le cours "${courseDoc?.title || title}" (UE: ${ueName}).\n\nContenu du cours:\n${docContent}\n\nConversation precedente:\n${context}\n\nQuestion: ${q}\n\nReponds de maniere pedagogique. Utilise le format Markdown.`,
             });
             const answer = res.data?.response || res.data?.message || res.data?.answer || 'Pas de reponse.';
             setMessages(prev => [...prev, { role: 'assistant', content: answer }]);
@@ -465,8 +465,8 @@ export default function CourseRevision() {
         setRightPanel('quiz');
         try {
             const res = await api.post('/api/exams/generate-quiz', {
-                course_title: document?.title || title,
-                course_content: document?.content || '',
+                course_title: courseDoc?.title || title,
+                course_content: courseDoc?.content || '',
                 num_questions: 5,
             });
             setQuizQuestions(res.data.questions || []);
@@ -482,7 +482,7 @@ export default function CourseRevision() {
         setExerciseLoading(true);
         try {
             const res = await api.post('/api/exams/generate-exercises', {
-                matiere: document?.title || title,
+                matiere: courseDoc?.title || title,
                 filiere: ueName,
             });
             const exercise = res.data.exercise || 'Aucun exercice genere.';
@@ -504,9 +504,9 @@ export default function CourseRevision() {
 
     const pdfUrl = filePath
         ? `/api/exams/view-pdf?path=${encodeURIComponent(filePath)}#toolbar=0&navpanes=0`
-        : (document?.file_path ? `/api/exams/view-pdf?path=${encodeURIComponent(document.file_path)}#toolbar=0&navpanes=0` : null);
+        : (courseDoc?.file_path ? `/api/exams/view-pdf?path=${encodeURIComponent(courseDoc.file_path)}#toolbar=0&navpanes=0` : null);
 
-    const courseContent = document?.content || '';
+    const courseContent = courseDoc?.content || '';
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 70px)', background: '#f8fafb' }}>
@@ -527,7 +527,7 @@ export default function CourseRevision() {
                 <i className="fas fa-book-reader" style={{ color: TEAL, fontSize: 14, flexShrink: 0 }}></i>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 style={{ color: 'white', fontSize: 13, fontWeight: 700, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {document?.title || title}
+                        {courseDoc?.title || title}
                     </h3>
                     {ueName && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{ueName}</span>}
                 </div>
@@ -547,7 +547,7 @@ export default function CourseRevision() {
                     >
                         <i className={exerciseLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-pen-fancy'} style={{ fontSize: 10 }}></i> Exercices
                     </button>
-                    <button onClick={() => { if (document) generateFullCourse(document); }} disabled={courseGenerating}
+                    <button onClick={() => { if (courseDoc) generateFullCourse(courseDoc); }} disabled={courseGenerating}
                         style={{
                             fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
                             background: courseGenerating ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
@@ -732,7 +732,7 @@ export default function CourseRevision() {
                             <div style={{ maxWidth: 700, margin: '0 auto' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                                     <i className="fas fa-question-circle" style={{ color: '#F5A623', fontSize: 20 }}></i>
-                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0 }}>Quiz — {document?.title || title}</h3>
+                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0 }}>Quiz — {courseDoc?.title || title}</h3>
                                     <button onClick={() => setRightPanel('course')}
                                         style={{ marginLeft: 'auto', background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 600, color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
                                     >
@@ -808,7 +808,7 @@ export default function CourseRevision() {
                         <iframe
                             src={pdfUrl}
                             style={{ flex: 1, border: 'none', background: 'white' }}
-                            title={document?.title || title}
+                            title={courseDoc?.title || title}
                         />
                     ) : docLoading || courseGenerating ? (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
@@ -992,7 +992,7 @@ export default function CourseRevision() {
                                         <i className="fas fa-book-open"></i>
                                     </div>
                                     <div style={{ flex: 1 }}>
-                                        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{document?.title || title}</h2>
+                                        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{courseDoc?.title || title}</h2>
                                         {ueName && <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>{ueName}</p>}
                                     </div>
                                     <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#e8f8f5', color: TEAL }}>
@@ -1014,7 +1014,7 @@ export default function CourseRevision() {
                                         <i className="fas fa-book-open"></i>
                                     </div>
                                     <div>
-                                        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{document?.title || title}</h2>
+                                        <h2 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{courseDoc?.title || title}</h2>
                                         {ueName && <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>{ueName}</p>}
                                     </div>
                                 </div>
@@ -1031,7 +1031,7 @@ export default function CourseRevision() {
                                 <div style={{ width: 80, height: 80, borderRadius: 20, background: `${TEAL}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                                     <i className="fas fa-book-open" style={{ fontSize: 32, color: TEAL }}></i>
                                 </div>
-                                <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>{document?.title || title}</h3>
+                                <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>{courseDoc?.title || title}</h3>
                                 <p style={{ fontSize: 13, color: '#9ca3af', lineHeight: 1.6, margin: '0 0 20px' }}>
                                     Aucun contenu disponible. Utilisez l'assistant IA a gauche pour poser des questions.
                                 </p>

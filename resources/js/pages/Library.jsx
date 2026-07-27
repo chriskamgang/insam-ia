@@ -559,16 +559,16 @@ export default function Library() {
                             <>
                                 {Object.entries(
                                     filtered.reduce((groups, exam) => {
-                                        const key = exam.filiere || 'Autres spécialités';
+                                        const key = exam.matiere || exam.filiere || 'Autres spécialités';
                                         if (!groups[key]) groups[key] = [];
                                         groups[key].push(exam);
                                         return groups;
                                     }, {})
-                                ).sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([filiere, examList]) => (
-                                    <div key={filiere} style={{ marginBottom: 36 }}>
+                                ).sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([specialite, examList]) => (
+                                    <div key={specialite} style={{ marginBottom: 36 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, paddingBottom: 10, borderBottom: `2px solid ${TEAL}25` }}>
                                             <div style={{ width: 4, height: 22, borderRadius: 2, background: TEAL }}></div>
-                                            <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>{filiere}</h3>
+                                            <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>{specialite}</h3>
                                             <span style={{ fontSize: 11, background: `${TEAL}15`, color: TEAL, padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>
                                                 {examList.length} sujet{examList.length > 1 ? 's' : ''}
                                             </span>
