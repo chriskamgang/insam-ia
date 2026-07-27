@@ -208,6 +208,20 @@ export default function CourseRevision() {
     const [ttsSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window);
     const utteranceRef = useRef(null);
 
+    // AI-generated audio script
+    const [audioScript, setAudioScript] = useState(null);
+    const [audioScriptLoading, setAudioScriptLoading] = useState(false);
+
+    // AI-generated video slides
+    const [videoSlides, setVideoSlides] = useState(null);
+    const [videoSlidesLoading, setVideoSlidesLoading] = useState(false);
+    const [slideIndex, setSlideIndex] = useState(0);
+    const [slideAutoplay, setSlideAutoplay] = useState(false);
+    const slideTimerRef = useRef(null);
+
+    // Selected chapter for audio/video generation
+    const [selectedChapter, setSelectedChapter] = useState(null);
+
     // Fetch document content on mount
     useEffect(() => {
         setDocLoading(true);
@@ -260,6 +274,112 @@ export default function CourseRevision() {
         window.speechSynthesis.cancel();
         setTtsPlaying(false);
     };
+
+    // Parse chapters from markdown content
+    const parseChapters = useCallback((content) => {
+        if (!content) return [];
+        const lines = content.split('\n');
+        const chapters = [];
+        let current = null;
+        for (const line of lines) {
+            if (/^#{1,3} /.test(line)) {
+                if (current) chapters.push(current);
+                current = { title: line.replace(/^#+\s*/, '').trim(), content: '' };
+            } else if (current) {
+                current.content += line + '\n';
+            }
+        }
+        if (current) chapters.push(current);
+        // If no headings found, treat whole doc as one chapter
+        if (chapters.length === 0 && content.trim()) {
+            chapters.push({ title: document?.title || title, content });
+        }
+        return chapters;
+    }, [document, title]);
+
+    const chapters = parseChapters(generatedCourse || courseContent);
+
+    // Ensure selected chapter is valid
+    useEffect(() => {
+        if (chapters.length > 0 && !selectedChapter) {
+            setSelectedChapter(chapters[0]);
+        }
+    }, [chapters.length]);
+
+    const generateAIAudioScript = async (chapter) => {
+        if (audioScriptLoading) return;
+        const ch = chapter || selectedChapter || chapters[0];
+        if (!ch) return;
+        setAudioScriptLoading(true);
+        setAudioScript(null);
+        stopTTS();
+        try {
+            const res = await api.post('/api/exams/generate-audio-script', {
+                chapter_title: ch.title,
+                chapter_content: ch.content,
+                course_title: document?.title || title,
+                filiere: ueName,
+            });
+            setAudioScript(res.data.script || '');
+        } catch {
+            setAudioScript('Erreur lors de la generation du script audio.');
+        } finally {
+            setAudioScriptLoading(false);
+        }
+    };
+
+    const startAIAudio = () => {
+        if (!ttsSupported || !audioScript) return;
+        window.speechSynthesis.cancel();
+        const utter = new window.SpeechSynthesisUtterance(audioScript);
+        utter.lang = 'fr-FR';
+        utter.rate = 0.92;
+        utter.pitch = 1.05;
+        utter.onend = () => setTtsPlaying(false);
+        utter.onerror = () => setTtsPlaying(false);
+        utteranceRef.current = utter;
+        window.speechSynthesis.speak(utter);
+        setTtsPlaying(true);
+    };
+
+    const generateAIVideoSlides = async (chapter) => {
+        if (videoSlidesLoading) return;
+        const ch = chapter || selectedChapter || chapters[0];
+        if (!ch) return;
+        setVideoSlidesLoading(true);
+        setVideoSlides(null);
+        setSlideIndex(0);
+        setSlideAutoplay(false);
+        clearInterval(slideTimerRef.current);
+        try {
+            const res = await api.post('/api/exams/generate-video-slides', {
+                chapter_title: ch.title,
+                chapter_content: ch.content,
+                course_title: document?.title || title,
+                filiere: ueName,
+            });
+            setVideoSlides(res.data.slides || []);
+        } catch {
+            setVideoSlides([]);
+        } finally {
+            setVideoSlidesLoading(false);
+        }
+    };
+
+    // Slide auto-advance
+    useEffect(() => {
+        if (slideAutoplay && videoSlides?.length) {
+            slideTimerRef.current = setInterval(() => {
+                setSlideIndex(i => {
+                    if (i >= videoSlides.length - 1) { setSlideAutoplay(false); return i; }
+                    return i + 1;
+                });
+            }, 9000);
+        } else {
+            clearInterval(slideTimerRef.current);
+        }
+        return () => clearInterval(slideTimerRef.current);
+    }, [slideAutoplay, videoSlides]);
 
     // Stop TTS when leaving audio tab
     useEffect(() => {
@@ -702,96 +822,165 @@ export default function CourseRevision() {
                             </div>
                         </div>
                     ) : rightPanel === 'audio' ? (
-                        /* Audio panel */
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
-                            <div style={{ textAlign: 'center', maxWidth: 420, padding: '0 24px' }}>
-                                <div style={{ width: 80, height: 80, borderRadius: '50%', background: `${TEAL}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 0 0 ${ttsPlaying ? '12px' : '0'} ${TEAL}20`, transition: 'box-shadow .4s' }}>
-                                    <i className="fas fa-headphones" style={{ fontSize: 34, color: TEAL }}></i>
-                                </div>
-                                <h3 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: '0 0 6px' }}>Version Audio</h3>
-                                <p style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: '0 0 28px' }}>
-                                    {ttsSupported
-                                        ? 'Ecoutez la lecture du cours en francais via la synthese vocale de votre navigateur.'
-                                        : 'La synthese vocale n\'est pas disponible sur votre navigateur.'}
-                                </p>
-                                {ttsSupported && (
-                                    <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-                                        {!ttsPlaying ? (
-                                            <button onClick={startTTS}
-                                                style={{ padding: '12px 28px', borderRadius: 12, background: TEAL, color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 4px 14px ${TEAL}40` }}
+                        /* Audio panel — AI-generated pedagogical script */
+                        <div style={{ flex: 1, overflowY: 'auto', background: 'white' }}>
+                            <style>{`
+                                @keyframes eq1{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+                                @keyframes eq2{0%,100%{transform:scaleY(.6)}50%{transform:scaleY(.2)}}
+                                @keyframes eq3{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(.9)}}
+                                @keyframes eq4{0%,100%{transform:scaleY(.8)}50%{transform:scaleY(.3)}}
+                                @keyframes eq5{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+                            `}</style>
+                            <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 24px' }}>
+                                {/* Chapter selector */}
+                                {chapters.length > 1 && (
+                                    <div style={{ marginBottom: 20 }}>
+                                        <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 6 }}>Choisir un chapitre</label>
+                                        <select value={selectedChapter?.title || ''} onChange={e => {
+                                            const ch = chapters.find(c => c.title === e.target.value);
+                                            setSelectedChapter(ch);
+                                            setAudioScript(null);
+                                            stopTTS();
+                                        }} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${TEAL}40`, fontSize: 13, color: NAVY, background: 'white', outline: 'none', fontFamily: 'inherit' }}>
+                                            {chapters.map((ch, i) => <option key={i} value={ch.title}>{ch.title}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Player card */}
+                                <div style={{ borderRadius: 18, background: `linear-gradient(135deg, ${NAVY} 0%, #243a63 100%)`, padding: '28px 28px 24px', color: 'white', textAlign: 'center', marginBottom: 20, boxShadow: '0 8px 32px rgba(27,42,74,0.25)' }}>
+                                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: `${TEAL}25`, border: `2px solid ${TEAL}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', position: 'relative' }}>
+                                        <i className="fas fa-microphone" style={{ fontSize: 28, color: TEAL }}></i>
+                                        {ttsPlaying && (
+                                            <div style={{ position: 'absolute', inset: -6, borderRadius: '50%', border: `2px solid ${TEAL}40`, animation: 'spin 2s linear infinite' }}></div>
+                                        )}
+                                    </div>
+                                    <p style={{ fontSize: 11, color: `${TEAL}`, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 4px' }}>Lecon Audio — IA</p>
+                                    <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 16px', lineHeight: 1.3 }}>
+                                        {selectedChapter?.title || title}
+                                    </h3>
+
+                                    {/* Equalizer */}
+                                    <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'flex-end', height: 24, marginBottom: 16, opacity: ttsPlaying ? 1 : 0.2, transition: 'opacity .3s' }}>
+                                        {[1,2,3,4,5,6,7].map(n => (
+                                            <div key={n} style={{ width: 4, borderRadius: 4, background: TEAL, height: `${6 + (n % 3) * 7}px`, animation: ttsPlaying ? `eq${(n%5)+1} ${0.5+n*0.1}s ease-in-out infinite` : 'none' }}></div>
+                                        ))}
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                                        {!audioScript ? (
+                                            <button onClick={() => generateAIAudioScript(selectedChapter)} disabled={audioScriptLoading}
+                                                style={{ padding: '11px 24px', borderRadius: 50, background: TEAL, color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: audioScriptLoading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 4px 16px ${TEAL}40` }}
                                             >
-                                                <i className="fas fa-play"></i> Ecouter le cours
+                                                <i className={audioScriptLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-magic'}></i>
+                                                {audioScriptLoading ? 'Generation IA en cours...' : 'Generer la lecon audio IA'}
                                             </button>
+                                        ) : !ttsPlaying ? (
+                                            <>
+                                                <button onClick={startAIAudio}
+                                                    style={{ padding: '11px 24px', borderRadius: 50, background: TEAL, color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+                                                >
+                                                    <i className="fas fa-play"></i> Ecouter
+                                                </button>
+                                                <button onClick={() => { setAudioScript(null); generateAIAudioScript(selectedChapter); }}
+                                                    style={{ padding: '11px 16px', borderRadius: 50, background: 'rgba(255,255,255,0.1)', color: 'white', fontWeight: 600, fontSize: 13, border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                                                >
+                                                    <i className="fas fa-redo" style={{ fontSize: 11 }}></i> Regenerer
+                                                </button>
+                                            </>
                                         ) : (
                                             <button onClick={stopTTS}
-                                                style={{ padding: '12px 28px', borderRadius: 12, background: '#E74C3C', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}
+                                                style={{ padding: '11px 24px', borderRadius: 50, background: '#E74C3C', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
                                             >
                                                 <i className="fas fa-stop"></i> Arreter
                                             </button>
                                         )}
                                     </div>
+                                </div>
+
+                                {/* Script text */}
+                                {audioScript && (
+                                    <div style={{ padding: '20px', borderRadius: 14, background: '#f8fafb', border: '1px solid #f0f0f0' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                            <i className="fas fa-file-alt" style={{ color: TEAL, fontSize: 13 }}></i>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5 }}>Script genere par IA</span>
+                                        </div>
+                                        <p style={{ fontSize: 13, lineHeight: 1.9, color: '#374151', margin: 0, whiteSpace: 'pre-wrap' }}>{audioScript}</p>
+                                    </div>
                                 )}
-                                {ttsPlaying && (
-                                    <div style={{ marginTop: 18, display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'flex-end', height: 28 }}>
-                                        {[1,2,3,4,5].map(n => (
-                                            <div key={n} style={{ width: 4, borderRadius: 4, background: TEAL, animation: `eq${n} .7s ${n*0.12}s infinite alternate`, height: `${10 + n*4}px`, opacity: 0.8 }}></div>
-                                        ))}
+
+                                {!audioScript && !audioScriptLoading && (
+                                    <div style={{ textAlign: 'center', color: '#9ca3af', padding: '20px 0' }}>
+                                        <p style={{ fontSize: 12, lineHeight: 1.6 }}>
+                                            <i className="fas fa-magic" style={{ color: TEAL, marginRight: 6 }}></i>
+                                            L'IA (Claude/Gemini) va generer un script audio pedagogique avec des exemples concrets, des analogies et des astuces pour ce chapitre.
+                                        </p>
                                     </div>
                                 )}
                             </div>
-                            <style>{`
-                                @keyframes eq1{from{transform:scaleY(.4)}to{transform:scaleY(1)}}
-                                @keyframes eq2{from{transform:scaleY(.6)}to{transform:scaleY(1)}}
-                                @keyframes eq3{from{transform:scaleY(.3)}to{transform:scaleY(1)}}
-                                @keyframes eq4{from{transform:scaleY(.7)}to{transform:scaleY(1)}}
-                                @keyframes eq5{from{transform:scaleY(.5)}to{transform:scaleY(1)}}
-                            `}</style>
                         </div>
                     ) : rightPanel === 'video' ? (
-                        /* Video panel */
-                        <div style={{ flex: 1, overflowY: 'auto', background: 'white', padding: '24px' }}>
-                            <div style={{ maxWidth: 700, margin: '0 auto' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                                    <i className="fas fa-play-circle" style={{ color: '#E74C3C', fontSize: 20 }}></i>
-                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0 }}>Videos de la specialite</h3>
-                                </div>
-                                {videosLoading ? (
-                                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                                        <div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTopColor: TEAL, borderRadius: '50%', margin: '0 auto', animation: 'spin 0.8s linear infinite' }}></div>
-                                    </div>
-                                ) : categoryVideos.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '60px 0' }}>
-                                        <i className="fas fa-film" style={{ fontSize: 40, color: '#e5e7eb', marginBottom: 12, display: 'block' }}></i>
-                                        <p style={{ fontSize: 14, color: '#9ca3af', margin: '0 0 16px' }}>Aucune video disponible pour cette specialite.</p>
-                                        {categoryId && (
-                                            <Link to={`/formations/${categoryId}`}
-                                                style={{ padding: '10px 24px', borderRadius: 10, background: TEAL, color: 'white', fontWeight: 600, fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                                            >
-                                                <i className="fas fa-arrow-left"></i> Retour a la specialite
-                                            </Link>
+                        /* Video panel — AI slide player */
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0f172a', overflow: 'hidden' }}>
+                            {!videoSlides ? (
+                                /* Generate screen */
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ textAlign: 'center', maxWidth: 440, padding: '0 24px' }}>
+                                        {/* Chapter selector */}
+                                        {chapters.length > 1 && (
+                                            <div style={{ marginBottom: 24 }}>
+                                                <select value={selectedChapter?.title || ''} onChange={e => {
+                                                    const ch = chapters.find(c => c.title === e.target.value);
+                                                    setSelectedChapter(ch);
+                                                }} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', fontSize: 13, color: 'white', background: 'rgba(255,255,255,0.08)', outline: 'none', fontFamily: 'inherit' }}>
+                                                    {chapters.map((ch, i) => <option key={i} value={ch.title} style={{ background: '#1e293b' }}>{ch.title}</option>)}
+                                                </select>
+                                            </div>
                                         )}
+                                        <div style={{ width: 90, height: 90, borderRadius: 24, background: 'rgba(91,188,180,0.15)', border: '2px solid rgba(91,188,180,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                            <i className="fas fa-film" style={{ fontSize: 36, color: TEAL }}></i>
+                                        </div>
+                                        <h3 style={{ fontSize: 20, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>Lecon Video IA</h3>
+                                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, margin: '0 0 28px' }}>
+                                            Claude/Gemini va generer une lecon video interactive avec slides animes, exemples concrets et narration automatique pour ce chapitre.
+                                        </p>
+                                        <button onClick={() => generateAIVideoSlides(selectedChapter)} disabled={videoSlidesLoading}
+                                            style={{ padding: '14px 36px', borderRadius: 50, background: videoSlidesLoading ? 'rgba(91,188,180,0.3)' : `linear-gradient(135deg, ${TEAL}, #3da89e)`, color: 'white', fontWeight: 700, fontSize: 15, border: 'none', cursor: videoSlidesLoading ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: videoSlidesLoading ? 'none' : `0 6px 24px ${TEAL}50` }}
+                                        >
+                                            <i className={videoSlidesLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-magic'}></i>
+                                            {videoSlidesLoading ? 'Generation des slides IA...' : 'Generer la lecon video'}
+                                        </button>
                                     </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        {categoryVideos.map(v => (
-                                            <Link key={v.id} to={`/video/${v.id}`}
-                                                style={{ display: 'flex', gap: 14, padding: '14px', borderRadius: 12, border: '1px solid #f0f0f0', background: 'white', textDecoration: 'none', alignItems: 'center', transition: 'all .15s' }}
-                                                onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 16px ${TEAL}20`}
-                                                onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-                                            >
-                                                <div style={{ width: 52, height: 52, borderRadius: 10, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E74C3C', fontSize: 20, flexShrink: 0 }}>
-                                                    <i className="fas fa-play"></i>
-                                                </div>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</p>
-                                                    {v.description && <p style={{ fontSize: 11, color: '#9ca3af', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.description}</p>}
-                                                </div>
-                                                <i className="fas fa-chevron-right" style={{ fontSize: 11, color: '#d1d5db', flexShrink: 0 }}></i>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : videoSlides.length === 0 ? (
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', flexDirection: 'column', gap: 12 }}>
+                                    <i className="fas fa-exclamation-circle" style={{ fontSize: 32 }}></i>
+                                    <p>Erreur de generation. <button onClick={() => generateAIVideoSlides(selectedChapter)} style={{ color: TEAL, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Reessayer</button></p>
+                                </div>
+                            ) : (
+                                /* Slide player */
+                                <SlidePlayer
+                                    slides={videoSlides}
+                                    slideIndex={slideIndex}
+                                    setSlideIndex={setSlideIndex}
+                                    slideAutoplay={slideAutoplay}
+                                    setSlideAutoplay={setSlideAutoplay}
+                                    onRegenerate={() => { setVideoSlides(null); }}
+                                    onNarrate={(text) => {
+                                        stopTTS();
+                                        if (!ttsSupported) return;
+                                        const utter = new window.SpeechSynthesisUtterance(text);
+                                        utter.lang = 'fr-FR'; utter.rate = 0.95;
+                                        utter.onend = () => setTtsPlaying(false);
+                                        utteranceRef.current = utter;
+                                        window.speechSynthesis.speak(utter);
+                                        setTtsPlaying(true);
+                                    }}
+                                    onStopNarrate={stopTTS}
+                                    isNarrating={ttsPlaying}
+                                    ttsSupported={ttsSupported}
+                                />
+                            )}
                         </div>
                     ) : generatedCourse ? (
                         /* AI-generated full course */
@@ -849,6 +1038,136 @@ export default function CourseRevision() {
                         </div>
                     )}
                 </div>
+            </div>
+        </div>
+    );
+}
+
+const SLIDE_TYPE_STYLES = {
+    intro:      { bg: 'linear-gradient(135deg,#1B2A4A,#243a63)', accent: '#5BBCB4' },
+    definition: { bg: 'linear-gradient(135deg,#1e3a5f,#0f2744)', accent: '#3B82F6' },
+    example:    { bg: 'linear-gradient(135deg,#064e3b,#065f46)', accent: '#10B981' },
+    tip:        { bg: 'linear-gradient(135deg,#78350f,#92400e)', accent: '#F5A623' },
+    exercise:   { bg: 'linear-gradient(135deg,#4c1d95,#5b21b6)', accent: '#8B5CF6' },
+    summary:    { bg: 'linear-gradient(135deg,#1B2A4A,#5BBCB4)', accent: '#ffffff' },
+};
+
+function SlidePlayer({ slides, slideIndex, setSlideIndex, slideAutoplay, setSlideAutoplay, onRegenerate, onNarrate, onStopNarrate, isNarrating, ttsSupported }) {
+    const slide = slides[slideIndex];
+    const style = SLIDE_TYPE_STYLES[slide?.type] || SLIDE_TYPE_STYLES.definition;
+    const progress = ((slideIndex + 1) / slides.length) * 100;
+
+    const narrationText = slide ? `${slide.title}. ${slide.content} ${slide.example ? 'Par exemple, ' + slide.example : ''} ${slide.points?.join('. ')}` : '';
+
+    return (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Progress bar */}
+            <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}>
+                <div style={{ height: '100%', background: `linear-gradient(90deg, ${TEAL}, #3da89e)`, width: `${progress}%`, transition: 'width .5s ease' }}></div>
+            </div>
+
+            {/* Slide content */}
+            <div style={{ flex: 1, background: style.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 40px', position: 'relative', overflow: 'hidden' }}>
+                {/* Decorative circles */}
+                <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, borderRadius: '50%', background: `${style.accent}08` }}></div>
+                <div style={{ position: 'absolute', bottom: -40, left: -40, width: 150, height: 150, borderRadius: '50%', background: `${style.accent}06` }}></div>
+
+                {/* Type badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 12, background: `${style.accent}20`, border: `1.5px solid ${style.accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className={slide?.icon || 'fas fa-book'} style={{ color: style.accent, fontSize: 16 }}></i>
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: style.accent, textTransform: 'uppercase', letterSpacing: 1.5, background: `${style.accent}15`, padding: '3px 10px', borderRadius: 20, border: `1px solid ${style.accent}30` }}>
+                        {slide?.type || 'slide'}
+                    </span>
+                </div>
+
+                {/* Title */}
+                <h2 style={{ fontSize: 24, fontWeight: 900, color: 'white', textAlign: 'center', margin: '0 0 16px', lineHeight: 1.25, maxWidth: 600 }}>
+                    {slide?.title}
+                </h2>
+
+                {/* Content */}
+                {slide?.content && (
+                    <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 1.8, margin: '0 0 16px', maxWidth: 580 }}>
+                        {slide.content}
+                    </p>
+                )}
+
+                {/* Points */}
+                {slide?.points?.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16, alignSelf: 'stretch', maxWidth: 520, margin: '0 auto 16px' }}>
+                        {slide.points.map((p, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.07)', border: `1px solid ${style.accent}20` }}>
+                                <div style={{ width: 22, height: 22, borderRadius: '50%', background: style.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#1B2A4A', flexShrink: 0 }}>{i + 1}</div>
+                                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.88)', fontWeight: 500 }}>{p}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Example */}
+                {slide?.example && (
+                    <div style={{ padding: '12px 18px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: `1px solid ${style.accent}30`, maxWidth: 520, marginTop: 4 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: style.accent, textTransform: 'uppercase', letterSpacing: .8, display: 'block', marginBottom: 4 }}>
+                            <i className="fas fa-lightbulb" style={{ marginRight: 5 }}></i>Exemple concret
+                        </span>
+                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>{slide.example}</p>
+                    </div>
+                )}
+
+                {/* Slide counter */}
+                <div style={{ position: 'absolute', top: 14, right: 16, fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 600 }}>
+                    {slideIndex + 1} / {slides.length}
+                </div>
+            </div>
+
+            {/* Controls bar */}
+            <div style={{ background: '#0f172a', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <button onClick={() => { setSlideIndex(i => Math.max(0, i - 1)); setSlideAutoplay(false); onStopNarrate(); }}
+                    disabled={slideIndex === 0}
+                    style={{ width: 36, height: 36, borderRadius: 10, background: slideIndex === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)', border: 'none', color: slideIndex === 0 ? 'rgba(255,255,255,0.2)' : 'white', cursor: slideIndex === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}
+                >
+                    <i className="fas fa-chevron-left"></i>
+                </button>
+
+                <button onClick={() => { setSlideAutoplay(p => !p); if (slideAutoplay) onStopNarrate(); }}
+                    style={{ flex: 1, height: 36, borderRadius: 10, background: slideAutoplay ? '#E74C3C' : TEAL, border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700, fontSize: 13 }}
+                >
+                    <i className={slideAutoplay ? 'fas fa-pause' : 'fas fa-play'}></i>
+                    {slideAutoplay ? 'Pause' : 'Lecture auto'}
+                </button>
+
+                {ttsSupported && (
+                    <button onClick={() => isNarrating ? onStopNarrate() : onNarrate(narrationText)}
+                        style={{ width: 36, height: 36, borderRadius: 10, background: isNarrating ? '#F5A623' : 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, title: 'Narration vocale' }}
+                    >
+                        <i className={isNarrating ? 'fas fa-volume-mute' : 'fas fa-volume-up'}></i>
+                    </button>
+                )}
+
+                <button onClick={() => { setSlideIndex(i => Math.min(slides.length - 1, i + 1)); setSlideAutoplay(false); onStopNarrate(); }}
+                    disabled={slideIndex === slides.length - 1}
+                    style={{ width: 36, height: 36, borderRadius: 10, background: slideIndex === slides.length - 1 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)', border: 'none', color: slideIndex === slides.length - 1 ? 'rgba(255,255,255,0.2)' : 'white', cursor: slideIndex === slides.length - 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}
+                >
+                    <i className="fas fa-chevron-right"></i>
+                </button>
+
+                <button onClick={onRegenerate}
+                    style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}
+                    title="Regenerer"
+                >
+                    <i className="fas fa-redo"></i>
+                </button>
+            </div>
+
+            {/* Slide dots */}
+            <div style={{ background: '#0f172a', padding: '0 0 10px', display: 'flex', gap: 5, justifyContent: 'center' }}>
+                {slides.map((_, i) => (
+                    <button key={i} onClick={() => { setSlideIndex(i); setSlideAutoplay(false); onStopNarrate(); }}
+                        style={{ width: i === slideIndex ? 20 : 6, height: 6, borderRadius: 3, background: i === slideIndex ? TEAL : 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', padding: 0, transition: 'all .2s' }}
+                    ></button>
+                ))}
             </div>
         </div>
     );

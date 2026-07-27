@@ -99,6 +99,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/exams/submit-and-correct', [ExamController::class, 'submitAndCorrect']);
     Route::post('/exams/summarize-course', [ExamController::class, 'summarizeCourse']);
     Route::post('/exams/generate-quiz', [ExamController::class, 'generateQuiz']);
+    Route::post('/exams/generate-audio-script', [ExamController::class, 'generateAudioScript']);
+    Route::post('/exams/generate-video-slides', [ExamController::class, 'generateVideoSlides']);
 
     // Fiches de révision IA
     Route::get('/revision-cards', [RevisionCardController::class, 'index']);

@@ -678,4 +678,126 @@ PROMPT;
 
         return response()->json(['questions' => $questions]);
     }
+
+    /**
+     * Generate a pedagogical audio script for a chapter.
+     * Claude/Gemini produces an oral teaching script with examples and transitions.
+     */
+    public function generateAudioScript(Request $request)
+    {
+        $request->validate([
+            'chapter_title'   => 'required|string',
+            'chapter_content' => 'required|string',
+            'course_title'    => 'nullable|string',
+            'filiere'         => 'nullable|string',
+        ]);
+
+        $chapterTitle   = $request->chapter_title;
+        $chapterContent = substr($request->chapter_content, 0, 6000);
+        $courseTitle    = $request->course_title ?? $chapterTitle;
+        $filiere        = $request->filiere ?? '';
+
+        $systemPrompt = "Tu es un professeur expert et passionne qui enregistre un podcast audio pour des etudiants BTS camerounais. Tu parles directement a l'etudiant, de facon claire, vivante et motivante. Tu dois VRAIMENT expliquer et pas juste relire le cours — ajoute des exemples concrets, des analogies du quotidien, des astuces memoire. Reponds UNIQUEMENT avec le texte oral a lire (pas de markdown, pas de titres, pas de puces — juste du texte parle naturel). Langue : francais.";
+
+        $userMessage = <<<MSG
+Cours : {$courseTitle}
+Filiere : {$filiere}
+Chapitre : {$chapterTitle}
+
+Contenu du chapitre :
+{$chapterContent}
+
+Genere un script audio pedagogique oral pour ce chapitre.
+Le script doit :
+1. Commencer par une intro engageante ("Bonjour les etudiants, aujourd'hui on va parler de...")
+2. Expliquer chaque concept en langage simple avec 2-3 exemples concrets du quotidien
+3. Utiliser des transitions naturelles ("Maintenant passons a...", "Tres bien, maintenant...")
+4. Inclure 1-2 astuces memoire ("Pour retenir facilement...", "Le truc c'est...")
+5. Terminer par un resume des points cles en 3-5 phrases
+6. Conclure avec encouragement ("Bravo, vous avez termine ce chapitre...")
+
+IMPORTANT : texte oral uniquement, pas de symboles ni de markdown.
+MSG;
+
+        $script = AiService::chat($systemPrompt, $userMessage, [], 3000);
+
+        return response()->json(['script' => $script]);
+    }
+
+    /**
+     * Generate a video slide deck for a chapter.
+     * Returns JSON array of slides ready for the animated player.
+     */
+    public function generateVideoSlides(Request $request)
+    {
+        $request->validate([
+            'chapter_title'   => 'required|string',
+            'chapter_content' => 'required|string',
+            'course_title'    => 'nullable|string',
+            'filiere'         => 'nullable|string',
+        ]);
+
+        $chapterTitle   = $request->chapter_title;
+        $chapterContent = substr($request->chapter_content, 0, 5000);
+        $courseTitle    = $request->course_title ?? $chapterTitle;
+        $filiere        = $request->filiere ?? '';
+
+        $systemPrompt = "Tu es un expert en conception de cours e-learning visuels. Tu dois TOUJOURS repondre avec un JSON valide et rien d'autre. Le JSON est un tableau de slides pour une lecon video animee.";
+
+        $userMessage = <<<MSG
+Cours : {$courseTitle}
+Filiere : {$filiere}
+Chapitre : {$chapterTitle}
+
+Contenu :
+{$chapterContent}
+
+Genere un tableau JSON de 6 a 10 slides pour une lecon video pedagogique sur ce chapitre.
+
+Chaque slide doit avoir exactement cette structure :
+{
+  "type": "intro" ou "definition" ou "example" ou "tip" ou "exercise" ou "summary",
+  "title": "Titre court (max 8 mots)",
+  "content": "Explication principale (2-3 phrases max, langage simple)",
+  "points": ["point cle 1", "point cle 2", "point cle 3"],
+  "example": "Exemple concret du quotidien camerounais (1-2 phrases)",
+  "icon": "fas fa-XXX",
+  "color": "#hexcode"
+}
+
+Regles :
+- Slide 1 : toujours type "intro" avec objectifs du chapitre
+- Alterner types pour dynamisme : definition, example, tip, exercise
+- Derniere slide : toujours type "summary" avec 3-5 points cles a retenir
+- Les "points" sont des listes courtes (max 8 mots par point, max 5 points)
+- Utilise des couleurs variees et motivantes (#5BBCB4, #1B2A4A, #F5A623, #E74C3C, #8B5CF6, #10B981)
+- Les icones FontAwesome doivent etre adaptees au contenu
+
+Reponds UNIQUEMENT avec le tableau JSON, sans aucun autre texte.
+MSG;
+
+        $raw = AiService::chat($systemPrompt, $userMessage, [], 4000);
+
+        // Extract JSON array from response
+        $json = $raw;
+        if (preg_match('/```(?:json)?\s*([\s\S]+?)```/', $raw, $m)) {
+            $json = $m[1];
+        }
+        $start = strpos($json, '[');
+        $end   = strrpos($json, ']');
+        if ($start !== false && $end !== false) {
+            $json = substr($json, $start, $end - $start + 1);
+        }
+
+        $slides = json_decode($json, true);
+
+        if (!$slides || !is_array($slides)) {
+            $slides = [
+                ['type' => 'intro',   'title' => $chapterTitle, 'content' => 'Lecon video generee par IA.', 'points' => [], 'example' => '', 'icon' => 'fas fa-book-open', 'color' => '#5BBCB4'],
+                ['type' => 'summary', 'title' => 'Points cles',  'content' => 'Retenez bien ces elements.',  'points' => [], 'example' => '', 'icon' => 'fas fa-check-circle', 'color' => '#1B2A4A'],
+            ];
+        }
+
+        return response()->json(['slides' => $slides]);
+    }
 }
