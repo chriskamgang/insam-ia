@@ -503,7 +503,7 @@ export default function Landing() {
                             {t('home.categories_title')}
                         </h2>
                         <p style={{ fontSize: 15, color: '#9ca3af', maxWidth: 520, margin: '0 auto' }}>
-                            Explorez nos categories de cours et trouvez la formation qui vous convient
+                            Explorez nos filieres et specialites pour trouver votre formation
                         </p>
                     </div>
 
@@ -680,7 +680,7 @@ export default function Landing() {
                         Cours en ligne pour un apprentissage a distance
                     </h2>
                     <p style={{ color: 'rgba(255,255,255,0.88)', fontSize: 15, marginBottom: 32, lineHeight: 1.7 }}>
-                        Acces aux cours, sujets d'examens, videos TP et un assistant IA disponible 24h/7 pour vous aider dans vos etudes.
+                        Acces aux cours, videos TP, bibliotheque d'epreuves et revision intelligente pour maximiser vos chances de reussite au BTS.
                     </p>
                     <Link
                         to={user ? '/formations' : '/register'}
@@ -722,18 +722,12 @@ export default function Landing() {
                     {/* Main features grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20, marginBottom: 32 }}>
                         {[
-                            { icon: 'fas fa-robot', title: 'Assistant IA 24h/7', desc: 'Posez vos questions a tout moment. L\'IA vous donne des explications personnalisees, resume vos cours et vous aide a reviser.', color: '#5BBCB4', bg: '#e8f8f5', to: '/assistant' },
-                            { icon: 'fas fa-book-open', title: 'Bibliotheque Intelligente', desc: 'Anciens sujets BTS, generation d\'epreuves par IA, corrections automatiques et suivi de votre progression par UE.', color: '#8b5cf6', bg: '#f5f3ff', to: '/bibliotheque' },
-                            { icon: 'fas fa-chart-bar', title: 'Progression Analytique', desc: 'Histogrammes de vos scores par UE et epreuves BTS. Suivez votre evolution et identifiez vos points faibles.', color: '#f59e0b', bg: '#fffbeb', to: '/bibliotheque' },
-                            { icon: 'fas fa-clipboard-check', title: 'Quiz & Evaluations', desc: 'Quiz interactifs generes par IA apres chaque cours. Quiz de revision conditionne par la completion du cours.', color: '#ef4444', bg: '#fef2f2', to: '/evaluations' },
-                            { icon: 'fas fa-graduation-cap', title: 'Formations par Filiere', desc: 'Cours structures par specialite avec chapitres, videos TP et roadmap de competences pour chaque filiere.', color: '#3b82f6', bg: '#eff6ff', to: '/formations' },
-                            { icon: 'fas fa-play-circle', title: 'Videos TP', desc: 'Travaux pratiques filmes pour chaque specialite. Apprenez en regardant les demonstrations de vos professeurs.', color: '#10b981', bg: '#ecfdf5', to: '/formations' },
-                            { icon: 'fas fa-file-alt', title: 'Sujets d\'Examens', desc: 'Base de sujets BTS par matiere et niveau. Telechargez, traitez et obtenez des corrections detaillees par l\'IA.', color: '#ec4899', bg: '#fdf2f8', to: '/sujets' },
-                            { icon: 'fas fa-magic', title: 'Generation d\'Epreuves', desc: 'L\'IA analyse les anciens sujets et genere de nouvelles epreuves completes avec bareme adapte a votre niveau.', color: '#6366f1', bg: '#eef2ff', to: '/bibliotheque' },
-                            { icon: 'fas fa-redo', title: 'Revision Intelligente', desc: 'Terminez un cours, puis passez au quiz de revision. Le bouton "Termine" debloque le quiz adapte a votre parcours.', color: '#14b8a6', bg: '#f0fdfa', to: '/bibliotheque' },
+                            { icon: 'fas fa-book-open', title: 'Bibliotheque Intelligente', desc: 'Epreuves BTS classees par specialite, enrichissement par IA et corrections automatiques.', color: '#8b5cf6', bg: '#f5f3ff', to: '/bibliotheque' },
+                            { icon: 'fas fa-clipboard-list', title: 'Revision Intelligente', desc: 'Chapitres avec bouton "Lu et compris", quiz par chapitre et revision adaptee a votre parcours.', color: '#14b8a6', bg: '#f0fdfa', to: '/revision' },
+                            { icon: 'fas fa-graduation-cap', title: 'Formations par Filiere', desc: 'Cours structures par filiere et specialite avec chapitres, videos TP et supports pedagogiques.', color: '#3b82f6', bg: '#eff6ff', to: '/formations' },
+                            { icon: 'fas fa-play-circle', title: 'Videos TP', desc: 'Travaux pratiques filmes groupes par filiere. Apprenez en regardant les demonstrations de vos professeurs.', color: '#10b981', bg: '#ecfdf5', to: '/formations' },
+                            { icon: 'fas fa-layer-group', title: 'Fiches de Revision', desc: 'Creez et consultez des fiches de revision generees par IA a partir de vos cours.', color: '#f59e0b', bg: '#fffbeb', to: '/fiches' },
                             { icon: 'fas fa-comments', title: 'Communaute Etudiante', desc: 'Echangez avec les autres etudiants par filiere. Posez des questions, partagez vos fiches et entraidez-vous.', color: '#f97316', bg: '#fff7ed', to: '/communaute' },
-                            { icon: 'fas fa-store', title: 'Marketplace', desc: 'Achetez et vendez des ressources academiques : fiches, resumes, TPs corriges entre etudiants.', color: '#0ea5e9', bg: '#f0f9ff', to: '/marketplace' },
-                            { icon: 'fas fa-road', title: 'Roadmap & Debouches', desc: 'Visualisez le parcours de competences de votre filiere et decouvrez les debouches professionnels qui vous attendent.', color: '#1B2A4A', bg: '#f0f4ff', to: '/formations' },
                         ].map((f, i) => (
                             <Link key={i} to={user ? f.to : '/register'} style={{
                                 background: 'white', borderRadius: 16, padding: '24px 22px',
@@ -775,8 +769,8 @@ export default function Landing() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32, maxWidth: 900, margin: '0 auto' }} className="landing-grid4">
                         {[
                             { num: '1', icon: 'fas fa-user-plus', title: 'Inscrivez-vous', desc: 'Creez votre compte gratuit et selectionnez votre filiere et niveau.' },
-                            { num: '2', icon: 'fas fa-book-reader', title: 'Suivez vos cours', desc: 'Accedez aux cours, videos TP et sujets d\'examens de votre filiere. Cliquez "Termine" apres chaque cours.' },
-                            { num: '3', icon: 'fas fa-chart-line', title: 'Progressez', desc: 'Passez les quiz de revision, traitez les epreuves BTS et suivez vos scores sur les histogrammes.' },
+                            { num: '2', icon: 'fas fa-book-reader', title: 'Suivez vos cours', desc: 'Accedez aux cours et videos TP de votre filiere. Cliquez "Lu et compris" apres chaque chapitre.' },
+                            { num: '3', icon: 'fas fa-clipboard-list', title: 'Revisez intelligemment', desc: 'Passez les quiz par chapitre, consultez la bibliotheque d\'epreuves BTS et revisez par semestre.' },
                         ].map((step, i) => (
                             <div key={i} style={{ textAlign: 'center', position: 'relative' }}>
                                 <div style={{
