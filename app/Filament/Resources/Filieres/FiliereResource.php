@@ -12,6 +12,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use App\Filament\Traits\AdminOnly;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -24,6 +25,8 @@ use Filament\Tables\Table;
 
 class FiliereResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = Filiere::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedFolderOpen;

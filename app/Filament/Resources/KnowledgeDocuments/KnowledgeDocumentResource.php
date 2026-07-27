@@ -10,6 +10,7 @@ use App\Filament\Resources\KnowledgeDocuments\Tables\KnowledgeDocumentsTable;
 use App\Models\KnowledgeDocument;
 use BackedEnum;
 use Filament\Resources\Resource;
+use Illuminate\Support\Facades\Auth;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -27,6 +28,11 @@ class KnowledgeDocumentResource extends Resource
     protected static ?string $pluralModelLabel = 'Base de Connaissances';
 
     protected static ?int $navigationSort = 2;
+
+    public static function canAccess(): bool
+    {
+        return Auth::check() && in_array(Auth::user()->role, ['admin', 'enseignant']);
+    }
 
     public static function form(Schema $schema): Schema
     {

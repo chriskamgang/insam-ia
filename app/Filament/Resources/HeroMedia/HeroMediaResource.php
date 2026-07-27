@@ -10,6 +10,7 @@ use BackedEnum;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use App\Filament\Traits\AdminOnly;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -19,6 +20,8 @@ use Filament\Tables\Table;
 
 class HeroMediaResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = HeroMedia::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPhoto;

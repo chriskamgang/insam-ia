@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use App\Filament\Traits\AdminOnly;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -22,6 +23,8 @@ use Filament\Tables\Table;
 
 class SpecialiteResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = Specialite::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAcademicCap;

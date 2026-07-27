@@ -7,11 +7,18 @@ use App\Models\WhatsappConversation;
 use App\Models\WhatsappMessage;
 use BackedEnum;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Auth;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Http;
 
 class WhatsappDashboard extends Page
 {
+
+    public static function canAccess(): bool
+    {
+        return Auth::check() && Auth::user()->isAdmin();
+    }
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
     protected static ?string $navigationLabel = 'WhatsApp';
     protected static ?string $title = 'WhatsApp Bot';

@@ -13,11 +13,18 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Auth;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
 class AiConfiguration extends Page implements HasForms
 {
+
+    public static function canAccess(): bool
+    {
+        return Auth::check() && Auth::user()->isAdmin();
+    }
+
     use InteractsWithForms;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;

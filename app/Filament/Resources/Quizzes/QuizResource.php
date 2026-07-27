@@ -9,6 +9,7 @@ use App\Filament\Resources\Quizzes\Schemas\QuizForm;
 use App\Filament\Resources\Quizzes\Tables\QuizzesTable;
 use App\Models\Quiz;
 use BackedEnum;
+use App\Filament\Traits\AdminOnly;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class QuizResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = Quiz::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;

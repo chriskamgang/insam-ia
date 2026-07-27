@@ -12,6 +12,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\WithFileUploads;
 
@@ -24,6 +25,11 @@ class SyllabusVerification extends Page implements HasForms
     protected static ?string $title = 'Verification de conformite';
     protected static ?int $navigationSort = 90;
     protected static \UnitEnum|string|null $navigationGroup = 'Outils IA';
+
+    public static function canAccess(): bool
+    {
+        return Auth::check() && in_array(Auth::user()->role, ['admin', 'enseignant']);
+    }
 
     protected string $view = 'filament.pages.syllabus-verification';
 

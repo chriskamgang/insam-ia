@@ -9,6 +9,7 @@ use App\Filament\Resources\Debouches\Schemas\DeboucheForm;
 use App\Filament\Resources\Debouches\Tables\DebouchesTable;
 use App\Models\Debouche;
 use BackedEnum;
+use App\Filament\Traits\AdminOnly;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class DeboucheResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = Debouche::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;

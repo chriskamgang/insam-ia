@@ -33,7 +33,11 @@ class UserForm
                 TextInput::make('filiere')
                     ->default(null),
                 Select::make('role')
-                    ->options(['student' => 'Student', 'teacher' => 'Teacher', 'admin' => 'Admin'])
+                    ->options([
+                        'student'    => 'Etudiant',
+                        'enseignant' => 'Enseignant (Base de connaissances + Verification)',
+                        'admin'      => 'Administrateur (Acces complet)',
+                    ])
                     ->default('student')
                     ->required(),
                 TextInput::make('avatar')

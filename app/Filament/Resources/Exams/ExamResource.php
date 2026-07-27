@@ -9,6 +9,7 @@ use App\Filament\Resources\Exams\Schemas\ExamForm;
 use App\Filament\Resources\Exams\Tables\ExamsTable;
 use App\Models\Exam;
 use BackedEnum;
+use App\Filament\Traits\AdminOnly;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class ExamResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = Exam::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;

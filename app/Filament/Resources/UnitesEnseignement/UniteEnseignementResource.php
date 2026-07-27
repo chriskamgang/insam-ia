@@ -13,6 +13,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use App\Filament\Traits\AdminOnly;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -22,6 +23,8 @@ use Filament\Tables\Table;
 
 class UniteEnseignementResource extends Resource
 {
+    use AdminOnly;
+
     protected static ?string $model = UniteEnseignement::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAcademicCap;
