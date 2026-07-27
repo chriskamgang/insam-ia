@@ -31,14 +31,14 @@ const FILIERE_COLORS = {
 };
 
 const FILIERE_ORDER = [
-    'Genie Informatique',
-    'Commerce, Vente et Gestion',
-    'Genie Civil et Genie Thermique',
-    'Sante',
-    'Genie Electrique',
-    'Genie Mecanique et Productique',
     'Agriculture et Elevage',
+    'Genie Informatique',
+    'Genie Electrique',
+    'Genie Civil et Genie Thermique',
+    'Genie Mecanique et Productique',
+    'Commerce, Vente et Gestion',
     'Art, Tourisme et Hotellerie',
+    'Sante',
 ];
 
 const css = `
