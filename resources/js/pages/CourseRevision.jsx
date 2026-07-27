@@ -171,6 +171,7 @@ export default function CourseRevision() {
     const ueName = params.get('ue') || '';
     const filePath = params.get('file') || '';
     const categoryId = params.get('cat') || '';
+    const initialTab = params.get('tab') || 'course';
 
     const [document, setDocument] = useState(null);
     const [docLoading, setDocLoading] = useState(true);
@@ -191,7 +192,7 @@ export default function CourseRevision() {
     const [exerciseLoading, setExerciseLoading] = useState(false);
 
     // Right panel mode: 'course' | 'quiz' | 'audio' | 'video'
-    const [rightPanel, setRightPanel] = useState('course');
+    const [rightPanel, setRightPanel] = useState(initialTab === 'audio' ? 'audio' : initialTab === 'video' ? 'video' : 'course');
 
     // "Lu et compris" state — persisted per doc in localStorage
     const luKey = `lu_${docId}`;

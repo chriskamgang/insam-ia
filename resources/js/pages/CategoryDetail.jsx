@@ -108,7 +108,6 @@ export default function CategoryDetail() {
 
     const stats = [
         { icon: 'fas fa-book', value: category.courses_count ?? 0, label: 'Cours', color: TEAL, scrollTo: 'section-action-cards', tab: 'cours' },
-        { icon: 'fas fa-route', value: category.roadmap_steps_count ?? 0, label: t('categories.roadmap'), color: '#F5A623', scrollTo: 'section-action-cards' },
         { icon: 'fas fa-briefcase', value: category.debouches_count ?? debouches.length, label: t('categories.debouches'), color: '#E74C3C', scrollTo: 'section-debouches', tab: 'debouches' },
         { icon: 'fas fa-certificate', value: category.certifications_count ?? certifications.length, label: 'Certifications', color: NAVY, scrollTo: 'section-certifications', tab: 'certifications' },
     ];
@@ -121,16 +120,6 @@ export default function CategoryDetail() {
             desc: 'Accedez aux cours et supports pedagogiques de cette specialite.',
             color: TEAL,
             bg: '#e8f8f5',
-        },
-        {
-            key: 'roadmap',
-            icon: 'fas fa-route',
-            title: 'Parcours',
-            desc: 'Suivez les etapes du parcours recommande pour maitriser cette specialite.',
-            color: '#F5A623',
-            bg: '#fff8ec',
-            link: `/formations/${id}/roadmap`,
-            external: true,
         },
         {
             key: 'debouches',
@@ -234,7 +223,7 @@ export default function CategoryDetail() {
             <section id="section-action-cards" style={{ padding: '48px 0 0' }}>
                 <div style={W}>
                     <h2 style={{ fontSize: 20, fontWeight: 800, color: NAVY, marginBottom: 24 }}>Contenu de la formation</h2>
-                    <div className="cd-grid4">
+                    <div className="cd-grid3">
                         {actionCards.map((card) => (
                             card.external ? (
                                 <Link key={card.key} to={card.link}
@@ -355,11 +344,26 @@ export default function CategoryDetail() {
                                                                     <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', marginTop: 2 }}>{doc.type}</div>
                                                                 </div>
                                                                 {user && (
-                                                                    <button onClick={() => navigate(`/cours/${doc.id}/revision?title=${encodeURIComponent(doc.title)}&ue=${encodeURIComponent(ue.nom)}&file=${encodeURIComponent(doc.file_path || '')}&cat=${id}`)}
-                                                                        style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 8, background: `linear-gradient(135deg, ${TEAL}, #3da89e)`, color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, boxShadow: '0 2px 6px rgba(91,188,180,0.25)', flexShrink: 0, fontFamily: 'inherit' }}
-                                                                    >
-                                                                        <i className="fas fa-book-reader" style={{ fontSize: 10 }}></i> Reviser
-                                                                    </button>
+                                                                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                                                        <button onClick={() => navigate(`/cours/${doc.id}/revision?title=${encodeURIComponent(doc.title)}&ue=${encodeURIComponent(ue.nom)}&file=${encodeURIComponent(doc.file_path || '')}&cat=${id}`)}
+                                                                            style={{ fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 8, background: `linear-gradient(135deg, ${TEAL}, #3da89e)`, color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: '0 2px 6px rgba(91,188,180,0.25)', fontFamily: 'inherit' }}
+                                                                            title="Reviser ce cours"
+                                                                        >
+                                                                            <i className="fas fa-book-reader" style={{ fontSize: 10 }}></i> Cours
+                                                                        </button>
+                                                                        <button onClick={() => navigate(`/cours/${doc.id}/revision?title=${encodeURIComponent(doc.title)}&ue=${encodeURIComponent(ue.nom)}&file=${encodeURIComponent(doc.file_path || '')}&cat=${id}&tab=audio`)}
+                                                                            style={{ fontSize: 11, fontWeight: 600, padding: '6px 10px', borderRadius: 8, background: '#1B2A4A', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}
+                                                                            title="Lecon Audio IA"
+                                                                        >
+                                                                            <i className="fas fa-headphones" style={{ fontSize: 10 }}></i> Audio
+                                                                        </button>
+                                                                        <button onClick={() => navigate(`/cours/${doc.id}/revision?title=${encodeURIComponent(doc.title)}&ue=${encodeURIComponent(ue.nom)}&file=${encodeURIComponent(doc.file_path || '')}&cat=${id}&tab=video`)}
+                                                                            style={{ fontSize: 11, fontWeight: 600, padding: '6px 10px', borderRadius: 8, background: '#8B5CF6', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}
+                                                                            title="Lecon Video IA"
+                                                                        >
+                                                                            <i className="fas fa-film" style={{ fontSize: 10 }}></i> Video
+                                                                        </button>
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         ))}
@@ -498,9 +502,10 @@ export default function CategoryDetail() {
                                 style={{ background: TEAL, color: 'white', padding: '12px 26px', borderRadius: 50, fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer' }}>
                                 <i className="fas fa-book-open"></i> Voir les cours
                             </button>
-                            <Link to={`/formations/${id}/roadmap`} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '12px 26px', borderRadius: 50, fontWeight: 600, textDecoration: 'none', fontSize: 14, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <i className="fas fa-route"></i> Parcours
-                            </Link>
+                            <button onClick={() => { setActiveTab('debouches'); setTimeout(() => document.getElementById('section-debouches')?.scrollIntoView({ behavior: 'smooth' }), 100); }}
+                                style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '12px 26px', borderRadius: 50, fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                <i className="fas fa-briefcase"></i> Debouches
+                            </button>
                         </div>
                     </div>
                 </div>
