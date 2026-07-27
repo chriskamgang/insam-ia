@@ -61,6 +61,24 @@
                     <input type="text" wire:model="courseTitle" placeholder="Ex: Thermodynamique" class="sv-input" />
                 </div>
 
+                {{-- Syllabus file upload --}}
+                <div style="margin-bottom: 12px;">
+                    <label class="sv-label">Importer un syllabus (PDF, DOC, DOCX, TXT)</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; background: rgb(var(--warning-500) / .15); border: 1px dashed rgb(var(--warning-500)); color: rgb(var(--warning-400)); cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all .2s;">
+                            📋 Choisir un fichier
+                            <input type="file" wire:model="syllabusFile" accept=".pdf,.doc,.docx,.txt" style="display: none;" />
+                        </label>
+                        <span wire:loading wire:target="syllabusFile" style="font-size: 0.8rem; color: rgb(var(--gray-400));">
+                            <svg class="animate-spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:4px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            Extraction du texte...
+                        </span>
+                    </div>
+                </div>
+
                 <div>
                     <label class="sv-label">Contenu du syllabus</label>
                     <textarea wire:model="syllabus" rows="12" placeholder="Collez ou modifiez le syllabus ministeriel ici..." class="sv-textarea"></textarea>
@@ -97,7 +115,7 @@
         </div>
 
         {{-- Action button --}}
-        <div style="display: flex; justify-content: center; margin-top: 1.5rem;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 1.5rem;">
             <button
                 wire:click="verify"
                 wire:loading.attr="disabled"
@@ -113,6 +131,17 @@
                     Analyse en cours...
                 </span>
             </button>
+
+            {{-- Loading steps progress --}}
+            @if($loading && $loadingStep)
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-radius: 8px; background: rgb(var(--primary-500) / .1); border: 1px solid rgb(var(--primary-500) / .3);">
+                <svg class="animate-spin" style="width:16px;height:16px;color:rgb(var(--primary-400));flex-shrink:0;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span style="font-size: 0.875rem; color: rgb(var(--primary-300)); font-weight: 600;">{{ $loadingStep }}</span>
+            </div>
+            @endif
         </div>
 
         {{-- Result --}}
@@ -146,6 +175,24 @@
                 {!! \Illuminate\Support\Str::markdown($result) !!}
             </div>
         </div>
+
+        @if($completedSupport)
+        <div class="sv-result" style="margin-top: 1.5rem; border-color: #10b981;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 1rem;">
+                <div class="sv-title" style="margin-bottom: 0;"><span>📝</span> Support de cours complete par l'IA</div>
+                <div style="display: flex; gap: 8px;">
+                    <span style="padding: 4px 12px; border-radius: 20px; background: #065f46; color: #6ee7b7; font-size: 0.75rem; font-weight: 700;">
+                        ✅ Sauvegarde dans Base de Connaissances
+                    </span>
+                </div>
+            </div>
+            <div style="background: rgb(var(--gray-800)); border-radius: 8px; padding: 1rem; max-height: 600px; overflow-y: auto;">
+                <div class="prose prose-invert prose-sm max-w-none">
+                    {!! \Illuminate\Support\Str::markdown($completedSupport) !!}
+                </div>
+            </div>
+        </div>
+        @endif
         @endif
 
         {{-- History --}}

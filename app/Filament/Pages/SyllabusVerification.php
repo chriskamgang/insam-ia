@@ -13,7 +13,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Livewire\WithFileUploads;
 
 class SyllabusVerification extends Page implements HasForms
@@ -39,16 +38,18 @@ class SyllabusVerification extends Page implements HasForms
     public string $support = '';
     public string $courseTitle = '';
     public string $result = '';
+    public string $completedSupport = '';
     public bool $loading = false;
+    public string $loadingStep = '';
     public ?int $viewingHistoryId = null;
     public $supportFile = null;
+    public $syllabusFile = null;
 
     protected $queryString = ['doc'];
     public ?string $doc = null;
 
     public function mount(): void
     {
-        // Pre-load document if ?doc=ID is in URL
         if ($this->doc) {
             $document = KnowledgeDocument::find($this->doc);
             if ($document) {
@@ -63,18 +64,14 @@ class SyllabusVerification extends Page implements HasForms
     public function getDocumentsProperty(): array
     {
         if (!$this->selectedCategory) return [];
-
         return KnowledgeDocument::where('category_id', $this->selectedCategory)
-            ->pluck('title', 'id')
-            ->toArray();
+            ->pluck('title', 'id')->toArray();
     }
 
     public function getHistoryProperty()
     {
         return SyllabusVerificationModel::with('category:id,name')
-            ->latest()
-            ->limit(20)
-            ->get();
+            ->latest()->limit(20)->get();
     }
 
     public function updatedSelectedCategory(): void
@@ -87,7 +84,6 @@ class SyllabusVerification extends Page implements HasForms
     public function updatedSelectedDocument(): void
     {
         if (!$this->selectedDocument) return;
-
         $doc = KnowledgeDocument::find($this->selectedDocument);
         if ($doc) {
             $this->syllabus = $doc->content ?? '';
@@ -99,10 +95,10 @@ class SyllabusVerification extends Page implements HasForms
     {
         $record = SyllabusVerificationModel::find($id);
         if (!$record) return;
-
         $this->courseTitle = $record->course_title;
         $this->syllabus = $record->syllabus;
         $this->support = $record->support;
+        $this->completedSupport = $record->completed_support ?? '';
         $this->result = $record->result;
         $this->selectedCategory = $record->category_id ? (string) $record->category_id : null;
         $this->selectedDocument = $record->document_id ? (string) $record->document_id : null;
@@ -113,59 +109,65 @@ class SyllabusVerification extends Page implements HasForms
     {
         SyllabusVerificationModel::where('id', $id)->delete();
         if ($this->viewingHistoryId === $id) {
-            $this->reset(['result', 'viewingHistoryId']);
+            $this->reset(['result', 'completedSupport', 'viewingHistoryId']);
         }
         Notification::make()->title('Verification supprimee')->success()->send();
     }
 
+    // ─── File uploads ────────────────────────────────────────────
+
+    public function updatedSyllabusFile(): void
+    {
+        $text = $this->extractFile($this->syllabusFile);
+        if ($text) {
+            $this->syllabus = $text;
+            Notification::make()->title('Syllabus importe')->body(number_format(strlen($text)) . ' caracteres extraits.')->success()->send();
+        } else {
+            Notification::make()->title('Extraction echouee')->body('Collez le syllabus manuellement.')->warning()->send();
+        }
+        $this->syllabusFile = null;
+    }
+
     public function updatedSupportFile(): void
     {
-        if (!$this->supportFile) return;
-
-        $file = $this->supportFile;
-        $ext = strtolower($file->getClientOriginalExtension());
-        $tmpPath = $file->getRealPath();
-        $text = '';
-
-        try {
-            if ($ext === 'txt') {
-                $text = file_get_contents($tmpPath);
-            } elseif ($ext === 'docx') {
-                $text = $this->extractDocxText($tmpPath);
-            } elseif ($ext === 'doc') {
-                $text = $this->extractDocText($tmpPath);
-            } elseif ($ext === 'pdf') {
-                $text = $this->extractPdfText($tmpPath);
-            }
-        } catch (\Throwable $e) {
-            $text = '';
-        }
-
-        if (trim($text)) {
-            $this->support = trim($text);
-            $chars = number_format(strlen($text));
-            Notification::make()->title('Fichier importe')->body("Contenu extrait ({$chars} caracteres).")->success()->send();
+        $text = $this->extractFile($this->supportFile);
+        if ($text) {
+            $this->support = $text;
+            Notification::make()->title('Support importe')->body(number_format(strlen($text)) . ' caracteres extraits.')->success()->send();
         } else {
-            Notification::make()->title('Extraction echouee')->body('Impossible d\'extraire le texte. Collez le contenu manuellement.')->warning()->send();
+            Notification::make()->title('Extraction echouee')->body('Collez le support manuellement.')->warning()->send();
         }
-
         $this->supportFile = null;
+    }
+
+    private function extractFile($file): string
+    {
+        if (!$file) return '';
+        $ext = strtolower($file->getClientOriginalExtension());
+        $path = $file->getRealPath();
+        try {
+            return match ($ext) {
+                'txt'  => trim(file_get_contents($path)),
+                'docx' => $this->extractDocxText($path),
+                'doc'  => $this->extractDocText($path),
+                'pdf'  => $this->extractPdfText($path),
+                default => '',
+            };
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     private function extractDocxText(string $path): string
     {
         $zip = new \ZipArchive();
         if ($zip->open($path) !== true) return '';
-
         $xml = $zip->getFromName('word/document.xml');
         $zip->close();
         if (!$xml) return '';
-
-        // Strip XML tags but keep paragraph breaks
         $xml = str_replace('</w:p>', "\n", $xml);
         $xml = str_replace('</w:tr>', "\n", $xml);
         $text = strip_tags($xml);
-        // Clean up whitespace
         $text = preg_replace('/[ \t]+/', ' ', $text);
         $text = preg_replace('/\n{3,}/', "\n\n", $text);
         return trim($text);
@@ -173,20 +175,13 @@ class SyllabusVerification extends Page implements HasForms
 
     private function extractDocText(string $path): string
     {
-        // Try antiword first
         exec("antiword " . escapeshellarg($path) . " 2>/dev/null", $output, $code);
-        if ($code === 0 && !empty($output)) {
-            return implode("\n", $output);
-        }
-        // Try LibreOffice
+        if ($code === 0 && !empty($output)) return implode("\n", $output);
         $tmpDir = sys_get_temp_dir() . '/lo_' . uniqid();
         @mkdir($tmpDir, 0755, true);
         exec("HOME=/tmp libreoffice --headless --convert-to txt --outdir " . escapeshellarg($tmpDir) . " " . escapeshellarg($path) . " 2>&1", $out2, $code2);
         $files = glob("$tmpDir/*.txt");
-        $text = '';
-        if (!empty($files)) {
-            $text = file_get_contents($files[0]);
-        }
+        $text = !empty($files) ? file_get_contents($files[0]) : '';
         @array_map('unlink', glob("$tmpDir/*"));
         @rmdir($tmpDir);
         return $text;
@@ -194,37 +189,37 @@ class SyllabusVerification extends Page implements HasForms
 
     private function extractPdfText(string $path): string
     {
-        $outputFile = tempnam(sys_get_temp_dir(), 'pdf_') . '.txt';
-        exec("pdftotext " . escapeshellarg($path) . " " . escapeshellarg($outputFile) . " 2>/dev/null", $output, $code);
-        if ($code === 0 && file_exists($outputFile)) {
-            $text = file_get_contents($outputFile);
-            @unlink($outputFile);
+        $out = tempnam(sys_get_temp_dir(), 'pdf_') . '.txt';
+        exec("pdftotext " . escapeshellarg($path) . " " . escapeshellarg($out) . " 2>/dev/null", $o, $code);
+        if ($code === 0 && file_exists($out)) {
+            $text = file_get_contents($out);
+            @unlink($out);
             return $text;
         }
-        @unlink($outputFile);
+        @unlink($out);
         return '';
     }
+
+    // ─── Main verification ────────────────────────────────────────
 
     public function verify(): void
     {
         if (strlen(trim($this->syllabus)) < 10) {
-            Notification::make()->title('Syllabus trop court')->body('Veuillez saisir ou charger le syllabus ministeriel.')->danger()->send();
-            return;
+            Notification::make()->title('Syllabus manquant')->danger()->send(); return;
         }
         if (strlen(trim($this->support)) < 10) {
-            Notification::make()->title('Support trop court')->body('Veuillez coller le contenu du support de cours.')->danger()->send();
-            return;
+            Notification::make()->title('Support manquant')->danger()->send(); return;
         }
 
         $this->loading = true;
+        $this->completedSupport = '';
         $this->viewingHistoryId = null;
-
         $title = $this->courseTitle ?: 'ce cours';
 
-        $systemPrompt = "Tu es un expert en pedagogie universitaire et en conformite des programmes d'enseignement au Cameroun. Tu compares les syllabi ministeriels avec les supports de cours pour identifier les ecarts. Reponds en francais. Utilise le format Markdown avec des tableaux. IMPORTANT: Commence TOUJOURS ta reponse par le verdict et le score.";
-
-        $userMessage = <<<PROMPT
-Compare le syllabus ministeriel avec le support de cours pour "{$title}" et identifie les ecarts.
+        // Step 1: Analyse conformity
+        $this->loadingStep = 'Analyse de conformite...';
+        $analysisPrompt = <<<PROMPT
+Compare le syllabus ministeriel avec le support de cours pour "{$title}".
 
 **SYLLABUS MINISTERIEL:**
 {$this->syllabus}
@@ -232,37 +227,24 @@ Compare le syllabus ministeriel avec le support de cours pour "{$title}" et iden
 **SUPPORT DE COURS:**
 {$this->support}
 
-IMPORTANT: Commence ta reponse EXACTEMENT par ce format:
-
+Commence EXACTEMENT par:
 ## VERDICT: [CONFORME / PARTIELLEMENT CONFORME / NON CONFORME]
 ## Score de conformite: XX%
 
-Puis fais une analyse detaillee avec:
+Puis:
+1. **Resume executif** (2-3 phrases directes)
+2. **Tableau de conformite**: | Point du syllabus | Statut | Couverture | Remarque | (Statut: ✅ Complet, ⚠️ Partiel, ❌ Absent)
+3. **Points manquants (❌)** avec importance
+4. **Points partiels (⚠️)** avec ce qui manque
+5. **Recommandations** classees URGENT / IMPORTANT / SOUHAITABLE
 
-1. **Resume executif** - En 2-3 phrases, dis clairement si le support de cours couvre ou non le syllabus ministeriel. Sois direct: "Le support est conforme/non conforme car..."
-
-2. **Tableau de conformite** - Pour chaque point/chapitre du syllabus:
-   | Point du syllabus | Statut | Couverture | Remarque |
-   Statut: ✅ Complet, ⚠️ Partiel, ❌ Absent
-
-3. **Points manquants (❌)** - Points du syllabus NON couverts dans le support. Pour chaque point manquant, explique son importance.
-
-4. **Points partiellement couverts (⚠️)** - Points presents mais insuffisamment developpes, avec ce qui manque.
-
-5. **Points supplementaires** - Elements dans le support qui ne sont pas dans le syllabus (bonus ou hors programme)
-
-6. **Recommandations d'amelioration** - Actions concretes classees par priorite (URGENT / IMPORTANT / SOUHAITABLE) pour mettre le support en conformite.
-
-Criteres de verdict:
-- CONFORME: Score >= 80%, aucun point majeur manquant
-- PARTIELLEMENT CONFORME: Score entre 50% et 79%, quelques lacunes
-- NON CONFORME: Score < 50%, lacunes importantes
-
-Sois precis, objectif et direct dans ton analyse.
+Criteres: CONFORME>=80%, PARTIELLEMENT CONFORME 50-79%, NON CONFORME<50%
 PROMPT;
 
-        $this->result = AiService::chat($systemPrompt, $userMessage, [], 8000);
-        $this->loading = false;
+        $this->result = AiService::chat(
+            "Tu es expert en conformite pedagogique au Cameroun. Reponds en francais. Markdown avec tableaux.",
+            $analysisPrompt, [], 6000
+        );
 
         // Extract score
         $score = null;
@@ -270,17 +252,77 @@ PROMPT;
             $score = (int) $m[1];
         }
 
-        // Save to history
+        // Step 2: Complete the course with missing parts
+        $this->loadingStep = 'Completion du cours avec les points manquants...';
+        $completionPrompt = <<<PROMPT
+Voici le support de cours actuel pour "{$title}" et son analyse de conformite avec le syllabus.
+
+**SYLLABUS MINISTERIEL:**
+{$this->syllabus}
+
+**SUPPORT DE COURS ACTUEL:**
+{$this->support}
+
+**ANALYSE DE CONFORMITE:**
+{$this->result}
+
+Ta mission: Produire un support de cours COMPLET et AMELIORE qui:
+1. Conserve tout le contenu existant du support actuel
+2. Ajoute les chapitres/sections MANQUANTS identifies dans l'analyse (marques ❌ ou URGENT)
+3. Developpe les sections PARTIELLES (marques ⚠️ ou IMPORTANT)
+4. Respecte la structure et le style pedagogique du document original
+5. Pour chaque ajout, inclus: definition, explication, exemples concrets, exercices
+
+Format: Support de cours professionnel en Markdown. Commence directement par le contenu du cours, sans introduction.
+PROMPT;
+
+        $this->completedSupport = AiService::chat(
+            "Tu es un professeur universitaire expert. Tu completes des supports de cours pour les rendre conformes aux syllabi ministeriels. Reponds en francais. Format Markdown structure.",
+            $completionPrompt, [], 8000
+        );
+
+        // Step 3: Save to Base de Connaissances
+        $this->loadingStep = 'Sauvegarde dans la Base de Connaissances...';
+        $publishedDocId = null;
+        $docTitle = $this->courseTitle ?: 'Cours - Sans titre';
+
+        // Find or create the KnowledgeDocument
+        $existingDoc = $this->selectedDocument ? KnowledgeDocument::find($this->selectedDocument) : null;
+        if ($existingDoc) {
+            // Update existing document with completed content
+            $existingDoc->update(['content' => $this->completedSupport]);
+            $publishedDocId = $existingDoc->id;
+        } else {
+            // Create new document
+            $newDoc = KnowledgeDocument::create([
+                'title'       => $docTitle,
+                'filename'    => $docTitle . '.md',
+                'content'     => $this->completedSupport,
+                'type'        => 'text',
+                'category_id' => $this->selectedCategory ?: null,
+            ]);
+            $publishedDocId = $newDoc->id;
+        }
+
+        // Save verification history
         SyllabusVerificationModel::create([
-            'course_title' => $this->courseTitle ?: 'Sans titre',
-            'category_id' => $this->selectedCategory ?: null,
-            'document_id' => $this->selectedDocument ?: null,
-            'syllabus' => $this->syllabus,
-            'support' => $this->support,
-            'result' => $this->result,
-            'score' => $score,
+            'course_title'        => $docTitle,
+            'category_id'         => $this->selectedCategory ?: null,
+            'document_id'         => $this->selectedDocument ?: null,
+            'syllabus'            => $this->syllabus,
+            'support'             => $this->support,
+            'completed_support'   => $this->completedSupport,
+            'result'              => $this->result,
+            'score'               => $score,
+            'published_document_id' => $publishedDocId,
         ]);
 
-        Notification::make()->title('Analyse terminee et sauvegardee')->success()->send();
+        $this->loading = false;
+        $this->loadingStep = '';
+
+        Notification::make()
+            ->title('Analyse complete ✅')
+            ->body('Le cours a ete complete par l\'IA et sauvegarde dans la Base de Connaissances.')
+            ->success()->persistent()->send();
     }
 }
