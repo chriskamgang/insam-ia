@@ -1,5 +1,5 @@
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
@@ -190,8 +190,23 @@ export default function CourseRevision() {
     // Exercises state
     const [exerciseLoading, setExerciseLoading] = useState(false);
 
-    // Right panel mode: 'course' | 'quiz'
+    // Right panel mode: 'course' | 'quiz' | 'audio' | 'video'
     const [rightPanel, setRightPanel] = useState('course');
+
+    // "Lu et compris" state — persisted per doc in localStorage
+    const luKey = `lu_${docId}`;
+    const [luEtCompris, setLuEtCompris] = useState(() => {
+        try { return localStorage.getItem(luKey) === 'true'; } catch { return false; }
+    });
+
+    // Category videos for Video tab
+    const [categoryVideos, setCategoryVideos] = useState([]);
+    const [videosLoading, setVideosLoading] = useState(false);
+
+    // TTS state for Audio tab
+    const [ttsPlaying, setTtsPlaying] = useState(false);
+    const [ttsSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window);
+    const utteranceRef = useRef(null);
 
     // Fetch document content on mount
     useEffect(() => {
@@ -208,6 +223,49 @@ export default function CourseRevision() {
             .catch(() => {})
             .finally(() => setDocLoading(false));
     }, [docId]);
+
+    const markLuEtCompris = () => {
+        setLuEtCompris(true);
+        try { localStorage.setItem(luKey, 'true'); } catch {}
+    };
+
+    const fetchCategoryVideos = useCallback(() => {
+        if (!categoryId || categoryVideos.length > 0) return;
+        setVideosLoading(true);
+        api.get(`/api/public/categories/${categoryId}`)
+            .then(res => {
+                const videos = res.data.videos || res.data.data?.videos || [];
+                setCategoryVideos(videos);
+            })
+            .catch(() => {})
+            .finally(() => setVideosLoading(false));
+    }, [categoryId, categoryVideos.length]);
+
+    const startTTS = () => {
+        if (!ttsSupported) return;
+        const text = document?.content || generatedCourse || '';
+        if (!text) return;
+        window.speechSynthesis.cancel();
+        const utter = new window.SpeechSynthesisUtterance(text.replace(/[#*`]/g, ''));
+        utter.lang = 'fr-FR';
+        utter.rate = 0.95;
+        utter.onend = () => setTtsPlaying(false);
+        utter.onerror = () => setTtsPlaying(false);
+        utteranceRef.current = utter;
+        window.speechSynthesis.speak(utter);
+        setTtsPlaying(true);
+    };
+
+    const stopTTS = () => {
+        window.speechSynthesis.cancel();
+        setTtsPlaying(false);
+    };
+
+    // Stop TTS when leaving audio tab
+    useEffect(() => {
+        if (rightPanel !== 'audio') stopTTS();
+        if (rightPanel === 'video') fetchCategoryVideos();
+    }, [rightPanel]);
 
     const generateFullCourse = async (doc) => {
         setCourseGenerating(true);
@@ -353,16 +411,11 @@ export default function CourseRevision() {
                     {ueName && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{ueName}</span>}
                 </div>
                 <div className="rev-header-btns" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <button onClick={() => { if (document) generateFullCourse(document); }} disabled={courseGenerating}
-                        style={{
-                            fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
-                            background: courseGenerating ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
-                            color: 'white', border: 'none',
-                            cursor: courseGenerating ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-                        }}
-                    >
-                        <i className={courseGenerating ? 'fas fa-circle-notch fa-spin' : 'fas fa-redo'} style={{ fontSize: 10 }}></i> Regenerer
-                    </button>
+                    {luEtCompris && (
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#10B981', color: 'white', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="fas fa-check-circle"></i> Lu
+                        </span>
+                    )}
                     <button onClick={generateExercises} disabled={exerciseLoading}
                         style={{
                             fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
@@ -373,27 +426,16 @@ export default function CourseRevision() {
                     >
                         <i className={exerciseLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-pen-fancy'} style={{ fontSize: 10 }}></i> Exercices
                     </button>
-                    <button onClick={generateQuiz} disabled={quizLoading}
+                    <button onClick={() => { if (document) generateFullCourse(document); }} disabled={courseGenerating}
                         style={{
                             fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
-                            background: quizLoading ? 'rgba(255,255,255,0.05)' : (rightPanel === 'quiz' ? '#E74C3C' : TEAL),
+                            background: courseGenerating ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
                             color: 'white', border: 'none',
-                            cursor: quizLoading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                            cursor: courseGenerating ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
                         }}
                     >
-                        <i className={quizLoading ? 'fas fa-circle-notch fa-spin' : 'fas fa-question-circle'} style={{ fontSize: 10 }}></i> Quiz
+                        <i className={courseGenerating ? 'fas fa-circle-notch fa-spin' : 'fas fa-redo'} style={{ fontSize: 10 }}></i> Regenerer
                     </button>
-                    {rightPanel === 'quiz' && (
-                        <button onClick={() => setRightPanel('course')}
-                            style={{
-                                fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 8,
-                                background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-                            }}
-                        >
-                            <i className="fas fa-book" style={{ fontSize: 10 }}></i> Cours
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -535,8 +577,34 @@ export default function CourseRevision() {
                     </div>
                 </div>
 
-                {/* RIGHT: Course content or Quiz */}
+                {/* RIGHT: Course content / Quiz / Audio / Video */}
                 <div className="rev-right">
+                    {/* Tab bar */}
+                    <div style={{ display: 'flex', borderBottom: '2px solid #f0f0f0', background: 'white', flexShrink: 0 }}>
+                        {[
+                            { key: 'course', icon: 'fas fa-book-open', label: 'Cours' },
+                            { key: 'quiz',   icon: 'fas fa-question-circle', label: 'Quiz' },
+                            { key: 'audio',  icon: 'fas fa-headphones', label: 'Audio' },
+                            { key: 'video',  icon: 'fas fa-play-circle', label: 'Video' },
+                        ].map(tab => (
+                            <button key={tab.key}
+                                onClick={() => { if (tab.key === 'quiz' && rightPanel !== 'quiz') { generateQuiz(); } else { setRightPanel(tab.key); } }}
+                                style={{
+                                    flex: 1, padding: '10px 0', border: 'none', background: 'transparent',
+                                    borderBottom: rightPanel === tab.key ? `2.5px solid ${TEAL}` : '2.5px solid transparent',
+                                    color: rightPanel === tab.key ? TEAL : '#9ca3af',
+                                    fontWeight: rightPanel === tab.key ? 700 : 500,
+                                    fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                    justifyContent: 'center', gap: 5, marginBottom: -2, fontFamily: 'inherit',
+                                    transition: 'all .15s',
+                                }}
+                            >
+                                <i className={tab.key === 'quiz' && quizLoading ? 'fas fa-circle-notch fa-spin' : tab.icon} style={{ fontSize: 13 }}></i>
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
                     {rightPanel === 'quiz' && quizQuestions ? (
                         /* Quiz panel */
                         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: 'white' }}>
@@ -633,6 +701,98 @@ export default function CourseRevision() {
                                 )}
                             </div>
                         </div>
+                    ) : rightPanel === 'audio' ? (
+                        /* Audio panel */
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
+                            <div style={{ textAlign: 'center', maxWidth: 420, padding: '0 24px' }}>
+                                <div style={{ width: 80, height: 80, borderRadius: '50%', background: `${TEAL}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 0 0 ${ttsPlaying ? '12px' : '0'} ${TEAL}20`, transition: 'box-shadow .4s' }}>
+                                    <i className="fas fa-headphones" style={{ fontSize: 34, color: TEAL }}></i>
+                                </div>
+                                <h3 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: '0 0 6px' }}>Version Audio</h3>
+                                <p style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: '0 0 28px' }}>
+                                    {ttsSupported
+                                        ? 'Ecoutez la lecture du cours en francais via la synthese vocale de votre navigateur.'
+                                        : 'La synthese vocale n\'est pas disponible sur votre navigateur.'}
+                                </p>
+                                {ttsSupported && (
+                                    <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                                        {!ttsPlaying ? (
+                                            <button onClick={startTTS}
+                                                style={{ padding: '12px 28px', borderRadius: 12, background: TEAL, color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 4px 14px ${TEAL}40` }}
+                                            >
+                                                <i className="fas fa-play"></i> Ecouter le cours
+                                            </button>
+                                        ) : (
+                                            <button onClick={stopTTS}
+                                                style={{ padding: '12px 28px', borderRadius: 12, background: '#E74C3C', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}
+                                            >
+                                                <i className="fas fa-stop"></i> Arreter
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                {ttsPlaying && (
+                                    <div style={{ marginTop: 18, display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'flex-end', height: 28 }}>
+                                        {[1,2,3,4,5].map(n => (
+                                            <div key={n} style={{ width: 4, borderRadius: 4, background: TEAL, animation: `eq${n} .7s ${n*0.12}s infinite alternate`, height: `${10 + n*4}px`, opacity: 0.8 }}></div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <style>{`
+                                @keyframes eq1{from{transform:scaleY(.4)}to{transform:scaleY(1)}}
+                                @keyframes eq2{from{transform:scaleY(.6)}to{transform:scaleY(1)}}
+                                @keyframes eq3{from{transform:scaleY(.3)}to{transform:scaleY(1)}}
+                                @keyframes eq4{from{transform:scaleY(.7)}to{transform:scaleY(1)}}
+                                @keyframes eq5{from{transform:scaleY(.5)}to{transform:scaleY(1)}}
+                            `}</style>
+                        </div>
+                    ) : rightPanel === 'video' ? (
+                        /* Video panel */
+                        <div style={{ flex: 1, overflowY: 'auto', background: 'white', padding: '24px' }}>
+                            <div style={{ maxWidth: 700, margin: '0 auto' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                                    <i className="fas fa-play-circle" style={{ color: '#E74C3C', fontSize: 20 }}></i>
+                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0 }}>Videos de la specialite</h3>
+                                </div>
+                                {videosLoading ? (
+                                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                                        <div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTopColor: TEAL, borderRadius: '50%', margin: '0 auto', animation: 'spin 0.8s linear infinite' }}></div>
+                                    </div>
+                                ) : categoryVideos.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '60px 0' }}>
+                                        <i className="fas fa-film" style={{ fontSize: 40, color: '#e5e7eb', marginBottom: 12, display: 'block' }}></i>
+                                        <p style={{ fontSize: 14, color: '#9ca3af', margin: '0 0 16px' }}>Aucune video disponible pour cette specialite.</p>
+                                        {categoryId && (
+                                            <Link to={`/formations/${categoryId}`}
+                                                style={{ padding: '10px 24px', borderRadius: 10, background: TEAL, color: 'white', fontWeight: 600, fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                            >
+                                                <i className="fas fa-arrow-left"></i> Retour a la specialite
+                                            </Link>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {categoryVideos.map(v => (
+                                            <Link key={v.id} to={`/video/${v.id}`}
+                                                style={{ display: 'flex', gap: 14, padding: '14px', borderRadius: 12, border: '1px solid #f0f0f0', background: 'white', textDecoration: 'none', alignItems: 'center', transition: 'all .15s' }}
+                                                onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 16px ${TEAL}20`}
+                                                onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                                            >
+                                                <div style={{ width: 52, height: 52, borderRadius: 10, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E74C3C', fontSize: 20, flexShrink: 0 }}>
+                                                    <i className="fas fa-play"></i>
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</p>
+                                                    {v.description && <p style={{ fontSize: 11, color: '#9ca3af', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.description}</p>}
+                                                </div>
+                                                <i className="fas fa-chevron-right" style={{ fontSize: 11, color: '#d1d5db', flexShrink: 0 }}></i>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     ) : generatedCourse ? (
                         /* AI-generated full course */
                         <div style={{ flex: 1, overflowY: 'auto', background: 'white' }}>
@@ -652,6 +812,7 @@ export default function CourseRevision() {
                                 <div className="course-content"
                                     dangerouslySetInnerHTML={{ __html: renderMd(generatedCourse) }}
                                 />
+                                <LuEtComprisButton done={luEtCompris} onMark={markLuEtCompris} onQuiz={generateQuiz} />
                             </div>
                         </div>
                     ) : courseContent ? (
@@ -670,6 +831,7 @@ export default function CourseRevision() {
                                 <div className="course-content"
                                     dangerouslySetInnerHTML={{ __html: renderMd(courseContent) }}
                                 />
+                                <LuEtComprisButton done={luEtCompris} onMark={markLuEtCompris} onQuiz={generateQuiz} />
                             </div>
                         </div>
                     ) : (
@@ -688,6 +850,55 @@ export default function CourseRevision() {
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+function LuEtComprisButton({ done, onMark, onQuiz }) {
+    return (
+        <div style={{
+            marginTop: 48, padding: '28px 32px', borderRadius: 16,
+            background: done ? 'linear-gradient(135deg,#d1fae5,#a7f3d0)' : 'linear-gradient(135deg,#e8f8f5,#f0fffe)',
+            border: `2px solid ${done ? '#6ee7b7' : '#5BBCB4'}`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+            textAlign: 'center',
+        }}>
+            {done ? (
+                <>
+                    <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 24, boxShadow: '0 4px 16px rgba(16,185,129,0.3)' }}>
+                        <i className="fas fa-check"></i>
+                    </div>
+                    <div>
+                        <p style={{ fontSize: 16, fontWeight: 800, color: '#065f46', margin: '0 0 4px' }}>Chapitre marque comme lu !</p>
+                        <p style={{ fontSize: 12, color: '#047857', margin: 0 }}>Testez vos connaissances avec le quiz</p>
+                    </div>
+                    <button onClick={onQuiz}
+                        style={{ padding: '10px 28px', borderRadius: 10, background: '#1B2A4A', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 12px rgba(27,42,74,0.2)' }}
+                    >
+                        <i className="fas fa-question-circle"></i> Faire le Quiz du chapitre
+                    </button>
+                </>
+            ) : (
+                <>
+                    <i className="fas fa-book-reader" style={{ fontSize: 28, color: '#5BBCB4' }}></i>
+                    <div>
+                        <p style={{ fontSize: 15, fontWeight: 700, color: '#1B2A4A', margin: '0 0 4px' }}>Vous avez termine la lecture ?</p>
+                        <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>Marquez ce chapitre comme lu pour suivre votre progression</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                        <button onClick={onMark}
+                            style={{ padding: '11px 28px', borderRadius: 10, background: '#5BBCB4', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 14px rgba(91,188,180,0.35)' }}
+                        >
+                            <i className="fas fa-check-circle"></i> Lu et compris
+                        </button>
+                        <button onClick={onQuiz}
+                            style={{ padding: '11px 24px', borderRadius: 10, background: 'white', color: '#1B2A4A', fontWeight: 600, fontSize: 13, border: '1.5px solid #e5e7eb', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}
+                        >
+                            <i className="fas fa-question-circle" style={{ color: '#5BBCB4' }}></i> Quiz
+                        </button>
+                    </div>
+                </>
+            )}
         </div>
     );
 }
