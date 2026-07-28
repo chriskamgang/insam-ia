@@ -16,10 +16,25 @@ const TAB_KEYS = [
     { key: 'correct', tKey: 'library.tab_correct', icon: 'fas fa-check-double' },
 ];
 
+const SPE_COLORS = [
+    { grad:'linear-gradient(135deg,#1E3A8A,#3B82F6)', color:'#3B82F6', bg:'#eff6ff' },
+    { grad:'linear-gradient(135deg,#065F46,#10B981)', color:'#10B981', bg:'#ecfdf5' },
+    { grad:'linear-gradient(135deg,#92400E,#F59E0B)', color:'#F59E0B', bg:'#fff8ec' },
+    { grad:'linear-gradient(135deg,#4C1D95,#8B5CF6)', color:'#8B5CF6', bg:'#f5f3ff' },
+    { grad:'linear-gradient(135deg,#7F1D1D,#E74C3C)', color:'#E74C3C', bg:'#fef2f2' },
+    { grad:'linear-gradient(135deg,#831843,#EC4899)', color:'#EC4899', bg:'#fdf2f8' },
+    { grad:'linear-gradient(135deg,#7C3500,#F5A623)', color:'#F5A623', bg:'#fff8ec' },
+    { grad:'linear-gradient(135deg,#1B2A4A,#5BBCB4)', color:'#5BBCB4', bg:'#e8f8f5' },
+];
+
 const libCSS = `
 .lib-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+.lib-spe-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
 .lib-tabs { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; }
 .lib-modal-body { max-height:70vh; overflow-y:auto; }
+@media(max-width:1024px){ .lib-spe-grid { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:768px){ .lib-spe-grid { grid-template-columns:repeat(2,1fr); } .lib-grid3 { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:480px){ .lib-spe-grid { grid-template-columns:1fr; } .lib-grid3 { grid-template-columns:1fr; } }
 @media(max-width:1024px){ .lib-grid3 { grid-template-columns:repeat(2,1fr); } }
 @media(max-width:768px){ .lib-grid3 { grid-template-columns:1fr; } .lib-tabs { gap:0; } }
 .lib-md h1,.lib-md h2,.lib-md h3 { color:${NAVY}; margin:16px 0 8px; }
@@ -48,6 +63,47 @@ function Markdown({ text }) {
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br/>');
     return <div className="lib-md" dangerouslySetInnerHTML={{ __html: `<p>${html}</p>` }} />;
+}
+
+// ── Spécialité Card ──
+function SpeCard({ cat, palette, examCount, onClick }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <div onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+            style={{
+                borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
+                border: `2px solid ${hovered ? palette.color + '70' : '#e8e8e8'}`,
+                boxShadow: hovered ? `0 10px 28px ${palette.color}22` : '0 2px 8px rgba(0,0,0,.05)',
+                transform: hovered ? 'translateY(-4px)' : 'none',
+                transition: 'all .2s', background: 'white',
+            }}
+        >
+            {/* Gradient banner */}
+            <div style={{ height: 110, background: palette.grad, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }}></div>
+                <div style={{ width: 54, height: 54, borderRadius: 14, background: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'white' }}>
+                    <i className={cat.icon || 'fas fa-graduation-cap'}></i>
+                </div>
+                <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(255,255,255,0.9)', borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 700, color: palette.color }}>
+                    {examCount} sujet{examCount > 1 ? 's' : ''}
+                </div>
+            </div>
+            {/* Info */}
+            <div style={{ padding: '12px 14px' }}>
+                <h3 style={{ fontSize: 12, fontWeight: 800, color: NAVY, margin: '0 0 5px', lineHeight: 1.3, textTransform: 'uppercase', letterSpacing: 0.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {cat.name}
+                </h3>
+                {cat.description && (
+                    <p style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.5, margin: '0 0 8px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {cat.description}
+                    </p>
+                )}
+                <span style={{ fontSize: 11, fontWeight: 700, color: palette.color, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <i className="fas fa-arrow-right" style={{ fontSize: 9 }}></i> Voir les sujets
+                </span>
+            </div>
+        </div>
+    );
 }
 
 // ── Exam Card ──
@@ -435,6 +491,7 @@ export default function Library() {
     const [search, setSearch] = useState('');
     const [filterNiveau, setFilterNiveau] = useState('');
     const [filterFiliere, setFilterFiliere] = useState('');
+    const [selectedSpe, setSelectedSpe] = useState(null); // selected spécialité (category)
 
     // Modal states
     const [correctionModal, setCorrectionModal] = useState(null);
@@ -495,7 +552,7 @@ export default function Library() {
                     {/* Tabs */}
                     <div className="lib-tabs">
                         {TAB_KEYS.map(tb => (
-                            <button key={tb.key} onClick={() => setTab(tb.key)} style={{
+                            <button key={tb.key} onClick={() => { setTab(tb.key); setSelectedSpe(null); setSearch(''); setFilterNiveau(''); }} style={{
                                 padding: '12px 22px', border: 'none', borderBottom: tab === tb.key ? `3px solid ${TEAL}` : '3px solid transparent',
                                 background: 'transparent', color: tab === tb.key ? TEAL : '#6b7280',
                                 fontWeight: tab === tb.key ? 700 : 500, fontSize: 13, cursor: 'pointer',
@@ -514,76 +571,115 @@ export default function Library() {
                 {/* ═══════════════════════════════════════
                     TAB 1: ANCIENS SUJETS BTS
                 ═══════════════════════════════════════ */}
-                {tab === 'sujets' && (
-                    <>
-                        {/* Filters */}
-                        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-                            <div style={{ position: 'relative', flex: '1 1 220px' }}>
-                                <i className="fas fa-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 13 }}></i>
-                                <input value={search} onChange={e => setSearch(e.target.value)}
-                                    placeholder={t('library.search_subject')}
-                                    style={{ ...inputStyle, paddingLeft: 36 }}
-                                />
-                            </div>
-                            <select value={filterNiveau} onChange={e => setFilterNiveau(e.target.value)}
-                                style={{ ...inputStyle, width: 'auto', minWidth: 140, cursor: 'pointer' }}>
-                                <option value="">{t('library.all_levels')}</option>
-                                {NIVEAUX.map(n => <option key={n} value={n}>{n}</option>)}
-                            </select>
-                            <select value={filterFiliere} onChange={e => setFilterFiliere(e.target.value)}
-                                style={{ ...inputStyle, width: 'auto', minWidth: 160, cursor: 'pointer' }}>
-                                <option value="">{t('library.all_fields')}</option>
-                                {filiereOptions.map(f => <option key={f} value={f}>{f}</option>)}
-                            </select>
+                {tab === 'sujets' && !selectedSpe && (
+                    /* Cards de spécialités */
+                    loading ? (
+                        <div className="lib-spe-grid">
+                            {[...Array(8)].map((_, i) => (
+                                <div key={i} style={{ background: 'white', borderRadius: 14, height: 200, border: '1px solid #f0f0f0' }}></div>
+                            ))}
                         </div>
+                    ) : categories.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: 80, color: '#9ca3af' }}>
+                            <i className="fas fa-folder-open" style={{ fontSize: 48, marginBottom: 16, color: '#e5e7eb' }}></i>
+                            <p style={{ fontSize: 16, fontWeight: 600, color: '#6b7280' }}>Aucune spécialité disponible</p>
+                        </div>
+                    ) : (
+                        <div className="lib-spe-grid">
+                            {categories.map((cat, i) => {
+                                const palette = SPE_COLORS[i % SPE_COLORS.length];
+                                const examCount = exams.filter(e => String(e.category_id) === String(cat.id)).length;
+                                return (
+                                    <SpeCard
+                                        key={cat.id}
+                                        cat={cat}
+                                        palette={palette}
+                                        examCount={examCount}
+                                        onClick={() => setSelectedSpe({ cat, palette })}
+                                    />
+                                );
+                            })}
+                            {/* Card "Non classés" pour les exams sans category_id */}
+                            {exams.filter(e => !e.category_id).length > 0 && (
+                                <SpeCard
+                                    cat={{ id: null, name: 'Non classés', description: 'Sujets sans spécialité assignée', icon: 'fas fa-inbox' }}
+                                    palette={{ grad: 'linear-gradient(135deg,#374151,#6b7280)', color: '#6b7280', bg: '#f9fafb' }}
+                                    examCount={exams.filter(e => !e.category_id).length}
+                                    onClick={() => setSelectedSpe({ cat: { id: null, name: 'Non classés' }, palette: { grad: 'linear-gradient(135deg,#374151,#6b7280)', color: '#6b7280', bg: '#f9fafb' } })}
+                                />
+                            )}
+                        </div>
+                    )
+                )}
 
-                        {loading ? (
-                            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
-                                <i className="fas fa-spinner fa-spin" style={{ fontSize: 28, marginBottom: 12 }}></i>
-                                <p>{t('common.loading')}</p>
+                {tab === 'sujets' && selectedSpe && (() => {
+                    const { cat, palette } = selectedSpe;
+                    const speExams = cat.id === null
+                        ? exams.filter(e => !e.category_id)
+                        : exams.filter(e => String(e.category_id) === String(cat.id));
+                    const speFiltered = speExams.filter(e => {
+                        if (search && !e.title?.toLowerCase().includes(search.toLowerCase())) return false;
+                        if (filterNiveau && e.niveau !== filterNiveau) return false;
+                        return true;
+                    });
+                    return (
+                        <>
+                            {/* Hero */}
+                            <div style={{ background: palette.grad, borderRadius: 16, padding: '24px 28px', marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }}></div>
+                                <button onClick={() => { setSelectedSpe(null); setSearch(''); setFilterNiveau(''); }}
+                                    style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white', borderRadius: 8, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+                                    <i className="fas fa-arrow-left" style={{ fontSize: 10 }}></i> Toutes les spécialités
+                                </button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                    <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'white', flexShrink: 0 }}>
+                                        <i className={cat.icon || 'fas fa-graduation-cap'}></i>
+                                    </div>
+                                    <div>
+                                        <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', margin: '0 0 4px' }}>{cat.name}</h2>
+                                        {cat.description && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0 }}>{cat.description}</p>}
+                                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', margin: '4px 0 0' }}>
+                                            <i className="fas fa-file-alt" style={{ marginRight: 4 }}></i>
+                                            {speExams.length} sujet{speExams.length > 1 ? 's' : ''} disponible{speExams.length > 1 ? 's' : ''}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                        ) : filtered.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: 80, color: '#9ca3af' }}>
-                                <i className="fas fa-file-alt" style={{ fontSize: 48, marginBottom: 16, color: '#e5e7eb' }}></i>
-                                <p style={{ fontSize: 16, fontWeight: 600, color: '#6b7280' }}>{t('library.no_subject')}</p>
-                                <p style={{ fontSize: 13 }}>{t('library.submit_first')}</p>
-                                <button onClick={() => setTab('enrich')} style={{
-                                    marginTop: 16, padding: '10px 24px', borderRadius: 10,
-                                    background: TEAL, color: 'white', border: 'none',
-                                    fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-                                }}>
-                                    <i className="fas fa-plus" style={{ marginRight: 6 }}></i>{t('library.submit_subject')}
+
+                            {/* Filters */}
+                            <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+                                <div style={{ position: 'relative', flex: '1 1 200px' }}>
+                                    <i className="fas fa-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 12 }}></i>
+                                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un sujet..."
+                                        style={{ ...inputStyle, paddingLeft: 34 }} />
+                                </div>
+                                <select value={filterNiveau} onChange={e => setFilterNiveau(e.target.value)}
+                                    style={{ ...inputStyle, width: 'auto', minWidth: 130, cursor: 'pointer' }}>
+                                    <option value="">Tous niveaux</option>
+                                    {NIVEAUX.map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                                <button onClick={() => setTab('enrich')} style={{ padding: '0 16px', background: palette.color, color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, height: 40 }}>
+                                    <i className="fas fa-plus"></i> Ajouter un sujet
                                 </button>
                             </div>
-                        ) : (
-                            <>
-                                {Object.entries(
-                                    filtered.reduce((groups, exam) => {
-                                        const key = exam.matiere || exam.filiere || 'Autres spécialités';
-                                        if (!groups[key]) groups[key] = [];
-                                        groups[key].push(exam);
-                                        return groups;
-                                    }, {})
-                                ).sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([specialite, examList]) => (
-                                    <div key={specialite} style={{ marginBottom: 36 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, paddingBottom: 10, borderBottom: `2px solid ${TEAL}25` }}>
-                                            <div style={{ width: 4, height: 22, borderRadius: 2, background: TEAL }}></div>
-                                            <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>{specialite}</h3>
-                                            <span style={{ fontSize: 11, background: `${TEAL}15`, color: TEAL, padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>
-                                                {examList.length} sujet{examList.length > 1 ? 's' : ''}
-                                            </span>
-                                        </div>
-                                        <div className="lib-grid3">
-                                            {examList.map(exam => (
-                                                <ExamCard key={exam.id} exam={exam} onCorrect={handleCorrect} onTake={setTakingExam} />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </>
-                        )}
-                    </>
-                )}
+
+                            {speFiltered.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
+                                    <i className="fas fa-file-alt" style={{ fontSize: 40, marginBottom: 12, color: '#e5e7eb' }}></i>
+                                    <p style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>
+                                        {speExams.length === 0 ? 'Aucun sujet pour cette spécialité.' : 'Aucun résultat.'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="lib-grid3">
+                                    {speFiltered.map(exam => (
+                                        <ExamCard key={exam.id} exam={exam} onCorrect={handleCorrect} onTake={setTakingExam} />
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    );
+                })()}
 
                 {/* ═══════════════════════════════════════
                     TAB 2: GENERER DES EPREUVES
