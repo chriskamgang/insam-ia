@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from '../context/LangContext';
 import api from '../api';
 
@@ -83,7 +83,8 @@ export default function Categories() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
-    const [openFiliere, setOpenFiliere] = useState(null);
+    const [params] = useSearchParams();
+    const activeFiliere = params.get('f') || null; // null = show filière cards, string = show that filière's specialités
 
     useEffect(() => {
         api.get('/api/public/categories')
@@ -100,7 +101,6 @@ export default function Categories() {
         grouped[key].push(cat);
     }
 
-    // Ordered filiere list
     const filiereKeys = [
         ...FILIERE_ORDER.filter(f => grouped[f]),
         ...Object.keys(grouped).filter(f => !FILIERE_ORDER.includes(f)),
@@ -112,19 +112,73 @@ export default function Categories() {
                cat.description?.toLowerCase().includes(search.toLowerCase());
     };
 
-    // When searching, show all matching specialités grouped
-    const isSearching = !!search;
-
     const handleSearch = () => setSearch(searchInput);
 
-    const handleFiliereClick = (key) => {
-        setOpenFiliere(prev => prev === key ? null : key);
-        // scroll to filiere after opening
-        setTimeout(() => {
-            const el = document.getElementById(`fil-${key}`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 80);
-    };
+    // ── FILIÈRE DETAIL VIEW (when ?f=... param is set) ──
+    if (activeFiliere) {
+        const fd = FILIERE_DATA[activeFiliere] || { icon: 'fas fa-folder', color: TEAL, bg: '#e8f8f5', grad: `linear-gradient(135deg,${NAVY},${TEAL})`, description: '' };
+        const cats = (grouped[activeFiliere] || []).filter(matchesCat);
+
+        return (
+            <div style={{ background: '#F5F5F5', minHeight: '100vh' }}>
+                <style>{css}</style>
+
+                {/* Filière hero banner */}
+                <div style={{ background: fd.grad, padding: '36px 0 32px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: -60, right: -60, width: 260, height: 260, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }}></div>
+                    <div style={{ position: 'absolute', bottom: -40, left: -40, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }}></div>
+                    <div style={W}>
+                        <Link to="/formations" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600, textDecoration: 'none', marginBottom: 20 }}>
+                            <i className="fas fa-arrow-left" style={{ fontSize: 11 }}></i> Toutes les filieres
+                        </Link>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                            <div style={{ width: 70, height: 70, borderRadius: 20, background: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: 'white', flexShrink: 0 }}>
+                                <i className={fd.icon}></i>
+                            </div>
+                            <div>
+                                <h1 style={{ fontSize: 26, fontWeight: 900, color: 'white', margin: '0 0 6px', letterSpacing: -0.3 }}>{activeFiliere}</h1>
+                                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, maxWidth: 600 }}>{fd.description}</p>
+                                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: '6px 0 0' }}>
+                                    <i className="fas fa-graduation-cap" style={{ marginRight: 5 }}></i>
+                                    {(grouped[activeFiliere] || []).length} specialite{(grouped[activeFiliere] || []).length > 1 ? 's' : ''} disponible{(grouped[activeFiliere] || []).length > 1 ? 's' : ''}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ ...W, paddingTop: 32, paddingBottom: 64 }}>
+                    {/* Search */}
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 28 }}>
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, overflow: 'hidden', height: 44, border: '1px solid #e5e7eb' }}>
+                            <span style={{ padding: '0 14px', color: '#9ca3af' }}><i className="fas fa-search"></i></span>
+                            <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                placeholder="Rechercher une specialite..."
+                                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, color: NAVY, background: 'transparent', height: '100%' }} />
+                            {searchInput && <button onClick={() => { setSearchInput(''); setSearch(''); }} style={{ padding: '0 12px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16 }}>×</button>}
+                        </div>
+                        <button onClick={handleSearch} style={{ background: fd.color, color: 'white', border: 'none', borderRadius: 10, padding: '0 20px', height: 44, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Rechercher</button>
+                    </div>
+
+                    {loading ? (
+                        <div className="spe-grid">{[...Array(6)].map((_, i) => <div key={i} style={{ background: 'white', borderRadius: 12, height: 120, border: '1px solid #f0f0f0' }}></div>)}</div>
+                    ) : cats.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
+                            <i className="fas fa-search" style={{ fontSize: 48, marginBottom: 16, color: '#e5e7eb' }}></i>
+                            <p style={{ fontSize: 15, fontWeight: 600, color: '#6b7280' }}>Aucune specialite trouvee</p>
+                        </div>
+                    ) : (
+                        <div className="spe-grid">
+                            {cats.map(cat => <SpecialiteCard key={cat.id} cat={cat} fd={fd} />)}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ── MAIN VIEW: filière cards ──
+    const isSearching = !!search;
 
     return (
         <div style={{ background: '#F5F5F5', minHeight: '100vh' }}>
@@ -137,25 +191,17 @@ export default function Categories() {
                         Nos <span style={{ color: TEAL }}>Filieres</span> de Formation
                     </h1>
                     <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', margin: '0 0 24px' }}>
-                        Choisissez votre filiere pour decouvrir les specialites disponibles
+                        Cliquez sur une filiere pour decouvrir ses specialites
                     </p>
                     <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', gap: 10 }}>
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, overflow: 'hidden', height: 46, boxShadow: '0 4px 16px rgba(0,0,0,.2)' }}>
                             <span style={{ padding: '0 14px', color: '#9ca3af' }}><i className="fas fa-search"></i></span>
-                            <input
-                                value={searchInput}
-                                onChange={e => setSearchInput(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                            <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()}
                                 placeholder="Rechercher une filiere ou specialite..."
-                                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, color: NAVY, background: 'transparent', height: '100%' }}
-                            />
-                            {searchInput && (
-                                <button onClick={() => { setSearchInput(''); setSearch(''); }} style={{ padding: '0 12px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16 }}>×</button>
-                            )}
+                                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, color: NAVY, background: 'transparent', height: '100%' }} />
+                            {searchInput && <button onClick={() => { setSearchInput(''); setSearch(''); }} style={{ padding: '0 12px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16 }}>×</button>}
                         </div>
-                        <button onClick={handleSearch} style={{ background: TEAL, color: 'white', border: 'none', borderRadius: 10, padding: '0 22px', height: 46, fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
-                            Rechercher
-                        </button>
+                        <button onClick={handleSearch} style={{ background: TEAL, color: 'white', border: 'none', borderRadius: 10, padding: '0 22px', height: 46, fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>Rechercher</button>
                     </div>
                 </div>
             </section>
@@ -165,18 +211,18 @@ export default function Categories() {
                 {loading && (
                     <div className="fil-grid">
                         {[...Array(8)].map((_, i) => (
-                            <div key={i} style={{ background: 'white', borderRadius: 16, height: 220, border: '1px solid #f0f0f0', animation: 'pulse 1.5s ease-in-out infinite' }}></div>
+                            <div key={i} style={{ background: 'white', borderRadius: 16, height: 240, border: '1px solid #f0f0f0' }}></div>
                         ))}
                     </div>
                 )}
 
-                {/* === SEARCH RESULTS === */}
+                {/* Search results */}
                 {!loading && isSearching && (
                     <>
                         {filiereKeys.map(filiere => {
                             const cats = (grouped[filiere] || []).filter(matchesCat);
                             if (cats.length === 0) return null;
-                            const fd = FILIERE_DATA[filiere] || { color: TEAL, grad: `linear-gradient(135deg,${NAVY},${TEAL})` };
+                            const fd = FILIERE_DATA[filiere] || { color: TEAL, bg: '#e8f8f5', grad: `linear-gradient(135deg,${NAVY},${TEAL})` };
                             return (
                                 <div key={filiere} style={{ marginBottom: 40 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -194,80 +240,23 @@ export default function Categories() {
                             <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
                                 <i className="fas fa-search" style={{ fontSize: 48, marginBottom: 16, color: '#e5e7eb' }}></i>
                                 <p style={{ fontSize: 15, fontWeight: 600, color: '#6b7280' }}>Aucun resultat pour "{search}"</p>
-                                <button onClick={() => { setSearch(''); setSearchInput(''); }}
-                                    style={{ marginTop: 16, padding: '10px 24px', borderRadius: 50, background: TEAL, color: 'white', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                                    Effacer la recherche
+                                <button onClick={() => { setSearch(''); setSearchInput(''); }} style={{ marginTop: 16, padding: '10px 24px', borderRadius: 50, background: TEAL, color: 'white', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                                    Effacer
                                 </button>
                             </div>
                         )}
                     </>
                 )}
 
-                {/* === FILIERE CARDS (default view) === */}
+                {/* Filière cards grid */}
                 {!loading && !isSearching && (
-                    <div>
-                        <div className="fil-grid" style={{ marginBottom: 8 }}>
-                            {filiereKeys.map(key => {
-                                const fd = FILIERE_DATA[key] || { icon: 'fas fa-folder', color: TEAL, bg: '#e8f8f5', grad: `linear-gradient(135deg,${NAVY},${TEAL})`, description: '' };
-                                const cats = grouped[key] || [];
-                                const isOpen = openFiliere === key;
-                                return (
-                                    <FiliereCard
-                                        key={key}
-                                        name={key}
-                                        fd={fd}
-                                        count={cats.length}
-                                        isOpen={isOpen}
-                                        onClick={() => handleFiliereClick(key)}
-                                    />
-                                );
-                            })}
-                        </div>
-
-                        {/* Expanded specialités panel */}
-                        {openFiliere && grouped[openFiliere] && (
-                            <div id={`fil-${openFiliere}`} style={{
-                                marginTop: 24, background: 'white', borderRadius: 16,
-                                border: `2px solid ${(FILIERE_DATA[openFiliere]?.color || TEAL)}30`,
-                                padding: '28px 28px 32px',
-                                boxShadow: `0 8px 32px ${(FILIERE_DATA[openFiliere]?.color || TEAL)}15`,
-                            }}>
-                                {/* Panel header */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                                    <div style={{
-                                        width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                                        background: FILIERE_DATA[openFiliere]?.grad || `linear-gradient(135deg,${NAVY},${TEAL})`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: 'white', fontSize: 17,
-                                        boxShadow: `0 4px 12px ${(FILIERE_DATA[openFiliere]?.color || TEAL)}40`,
-                                    }}>
-                                        <i className={FILIERE_DATA[openFiliere]?.icon || 'fas fa-folder'}></i>
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <h2 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0 }}>{openFiliere}</h2>
-                                        <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>
-                                            {grouped[openFiliere].length} specialite{grouped[openFiliere].length > 1 ? 's' : ''} disponible{grouped[openFiliere].length > 1 ? 's' : ''}
-                                        </p>
-                                    </div>
-                                    <button onClick={() => setOpenFiliere(null)} style={{
-                                        background: '#f3f4f6', border: 'none', borderRadius: 10,
-                                        width: 34, height: 34, cursor: 'pointer', color: '#6b7280',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
-                                    }}>
-                                        <i className="fas fa-times"></i>
-                                    </button>
-                                </div>
-                                <div className="spe-grid">
-                                    {grouped[openFiliere].map(cat => (
-                                        <SpecialiteCard
-                                            key={cat.id}
-                                            cat={cat}
-                                            fd={FILIERE_DATA[openFiliere] || { color: TEAL, bg: '#e8f8f5', grad: `linear-gradient(135deg,${NAVY},${TEAL})` }}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                    <div className="fil-grid">
+                        {filiereKeys.map(key => {
+                            const fd = FILIERE_DATA[key] || { icon: 'fas fa-folder', color: TEAL, bg: '#e8f8f5', grad: `linear-gradient(135deg,${NAVY},${TEAL})`, description: '' };
+                            return (
+                                <FiliereCard key={key} name={key} fd={fd} count={(grouped[key] || []).length} />
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -275,93 +264,56 @@ export default function Categories() {
     );
 }
 
-function FiliereCard({ name, fd, count, isOpen, onClick }) {
+function FiliereCard({ name, fd, count }) {
     const [hovered, setHovered] = useState(false);
-    const active = isOpen || hovered;
 
     return (
-        <div
-            onClick={onClick}
+        <Link
+            to={`/formations?f=${encodeURIComponent(name)}`}
+            style={{ textDecoration: 'none', display: 'block' }}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
-            style={{
-                borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
-                border: `2px solid ${isOpen ? fd.color : (hovered ? fd.color + '60' : '#e8e8e8')}`,
-                boxShadow: active ? `0 12px 32px ${fd.color}25` : '0 2px 8px rgba(0,0,0,.05)',
-                transform: hovered && !isOpen ? 'translateY(-4px)' : 'none',
-                transition: 'all .2s', background: 'white',
-            }}
         >
-            {/* Photo / gradient banner */}
             <div style={{
-                height: 140, background: fd.grad, position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden',
+                borderRadius: 16, overflow: 'hidden',
+                border: `2px solid ${hovered ? fd.color + '80' : '#e8e8e8'}`,
+                boxShadow: hovered ? `0 12px 32px ${fd.color}25` : '0 2px 8px rgba(0,0,0,.05)',
+                transform: hovered ? 'translateY(-5px)' : 'none',
+                transition: 'all .2s', background: 'white',
             }}>
-                {/* Decorative circles */}
-                <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }}></div>
-                <div style={{ position: 'absolute', bottom: -20, left: -20, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }}></div>
-
-                {/* Big icon */}
-                <div style={{
-                    width: 70, height: 70, borderRadius: 20,
-                    background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.25)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 30, color: 'white',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                }}>
-                    <i className={fd.icon || 'fas fa-folder'}></i>
-                </div>
-
-                {/* Count badge */}
-                <div style={{
-                    position: 'absolute', top: 10, right: 10,
-                    background: 'rgba(255,255,255,0.9)', borderRadius: 20,
-                    padding: '3px 10px', fontSize: 10, fontWeight: 700, color: fd.color,
-                }}>
-                    {count} specialite{count > 1 ? 's' : ''}
-                </div>
-
-                {/* Open indicator */}
-                {isOpen && (
-                    <div style={{
-                        position: 'absolute', bottom: 0, left: 0, right: 0,
-                        background: 'rgba(0,0,0,0.3)', textAlign: 'center',
-                        padding: '6px 0', fontSize: 10, color: 'white', fontWeight: 700,
-                        letterSpacing: 0.5,
-                    }}>
-                        <i className="fas fa-chevron-up" style={{ marginRight: 5 }}></i>Fermer
+                {/* Photo / gradient banner */}
+                <div style={{ height: 150, background: fd.grad, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }}></div>
+                    <div style={{ position: 'absolute', bottom: -20, left: -20, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }}></div>
+                    <div style={{ width: 72, height: 72, borderRadius: 20, background: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: 'white', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
+                        <i className={fd.icon || 'fas fa-folder'}></i>
                     </div>
-                )}
-            </div>
+                    {count > 0 && (
+                        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(255,255,255,0.92)', borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: fd.color }}>
+                            {count} specialite{count > 1 ? 's' : ''}
+                        </div>
+                    )}
+                    {/* Hover arrow */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: `rgba(0,0,0,${hovered ? 0.3 : 0})`, textAlign: 'center', padding: '6px 0', fontSize: 11, color: 'white', fontWeight: 700, transition: 'all .2s', opacity: hovered ? 1 : 0 }}>
+                        <i className="fas fa-arrow-right" style={{ marginRight: 5 }}></i>Ouvrir la filiere
+                    </div>
+                </div>
 
-            {/* Info */}
-            <div style={{ padding: '14px 16px' }}>
-                <h3 style={{ fontSize: 13, fontWeight: 800, color: NAVY, margin: '0 0 6px', lineHeight: 1.3, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                    {name}
-                </h3>
-                <p style={{
-                    fontSize: 11, color: '#6b7280', lineHeight: 1.55, margin: '0 0 10px',
-                    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                }}>
-                    {fd.description || 'Decouvrez les specialites de cette filiere.'}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 11, color: fd.color, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}>
+                {/* Info */}
+                <div style={{ padding: '15px 17px' }}>
+                    <h3 style={{ fontSize: 13, fontWeight: 800, color: NAVY, margin: '0 0 6px', lineHeight: 1.3, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                        {name}
+                    </h3>
+                    <p style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.55, margin: '0 0 10px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {fd.description || 'Decouvrez les specialites de cette filiere.'}
+                    </p>
+                    <span style={{ fontSize: 11, color: fd.color, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                         <i className="fas fa-graduation-cap" style={{ fontSize: 10 }}></i>
                         Voir les specialites
                     </span>
-                    <div style={{
-                        width: 24, height: 24, borderRadius: 8,
-                        background: active ? fd.color : fd.bg,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all .2s',
-                    }}>
-                        <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: 9, color: active ? 'white' : fd.color }}></i>
-                    </div>
                 </div>
             </div>
-        </div>
+        </Link>
     );
 }
 

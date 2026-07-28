@@ -196,6 +196,7 @@ export default function Landing() {
     const [heroIndex, setHeroIndex] = useState(0);
     const [galleryOpen, setGalleryOpen] = useState(false);
     const [galleryIndex, setGalleryIndex] = useState(0);
+    const [openFiliere, setOpenFiliere] = useState(null);
 
     useEffect(() => {
         api.get('/api/public/categories').then(r => {
@@ -518,93 +519,80 @@ export default function Landing() {
             ============================= */}
             <section className="landing-section">
                 <div style={W}>
-                    <div style={{ textAlign: 'center', marginBottom: 48 }}>
+                    <div style={{ textAlign: 'center', marginBottom: 40 }}>
                         <h2 style={{ fontSize: 30, fontWeight: 800, color: '#1B2A4A', marginBottom: 12 }}>
                             {t('home.categories_title')}
                         </h2>
                         <p style={{ fontSize: 15, color: '#9ca3af', maxWidth: 520, margin: '0 auto' }}>
-                            Explorez nos filieres et specialites pour trouver votre formation
+                            Choisissez votre filiere pour decouvrir les specialites disponibles
                         </p>
                     </div>
 
-                    <div className="landing-grid4">
-                        {(categories.length > 0 ? categories : Array(8).fill(null)).map((cat, i) => {
-                            const palette = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
-                            const icons = ['fa-laptop-code', 'fa-chart-line', 'fa-calculator', 'fa-flask', 'fa-balance-scale', 'fa-language', 'fa-brain', 'fa-database'];
-                            const icon = cat?.icon || `fas ${icons[i % icons.length]}`;
-                            const names = ['Informatique', 'Gestion', 'Mathematiques', 'Sciences', 'Droit', 'Langues', 'IA & Data', 'Base de donnees'];
-                            const descs = ['Programmation, reseaux, systemes', 'Comptabilite, finance, marketing', 'Algebre, analyse, statistiques', 'Physique, chimie, biologie', 'Droit des affaires, civil', 'Francais, anglais, communication', 'Machine learning, big data', 'SQL, NoSQL, modeles de donnees'];
-                            return (
-                                <Link
-                                    key={cat?.id || i}
-                                    to={cat ? `/formations/${cat.id}` : '/formations'}
-                                    style={{
-                                        background: 'white',
-                                        borderRadius: 16,
-                                        padding: '24px 20px',
-                                        textDecoration: 'none',
-                                        border: '1px solid #f3f4f6',
-                                        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                                        transition: 'all .2s',
-                                        display: 'block',
-                                    }}
-                                    onMouseEnter={e => {
-                                        e.currentTarget.style.boxShadow = '0 8px 28px rgba(91,188,180,0.14)';
-                                        e.currentTarget.style.borderColor = palette.color;
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                    }}
-                                    onMouseLeave={e => {
-                                        e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)';
-                                        e.currentTarget.style.borderColor = '#f3f4f6';
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                    }}
-                                >
-                                    {/* Image or Icon box */}
-                                    {cat?.image ? (
-                                        <div style={{
-                                            width: '100%', height: 120, borderRadius: 12,
-                                            marginBottom: 14, overflow: 'hidden',
-                                        }}>
-                                            <img src={`/storage/${cat.image}`} alt={cat.name} style={{
-                                                width: '100%', height: '100%', objectFit: 'cover',
-                                            }} />
-                                        </div>
-                                    ) : (
-                                        <div style={{
-                                            width: 48, height: 48, borderRadius: 12,
-                                            background: palette.bg,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            marginBottom: 14, fontSize: 20, color: palette.color,
-                                        }}>
-                                            <i className={icon}></i>
-                                        </div>
-                                    )}
-                                    <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1B2A4A', marginBottom: 6 }}>
-                                        {cat?.name || names[i % names.length]}
-                                    </h3>
-                                    <p style={{
-                                        fontSize: 12, color: '#9ca3af', lineHeight: 1.6, margin: 0, textAlign: 'justify',
-                                        overflow: 'hidden', display: '-webkit-box',
-                                        WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
-                                    }}>
-                                        {cat?.description || descs[i % descs.length]}
-                                    </p>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: palette.color, marginTop: 8, display: 'inline-block' }}>
-                                        Voir plus <i className="fas fa-arrow-right" style={{ fontSize: 10 }}></i>
-                                    </span>
-                                    {cat?.videos_count > 0 && (
-                                        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-                                            <span style={{
-                                                fontSize: 11, fontWeight: 600, color: palette.color,
-                                            }}>
-                                                {cat.videos_count} {t('categories.videos')}
-                                            </span>
-                                            <i className="fas fa-arrow-right" style={{ fontSize: 9, color: palette.color }}></i>
-                                        </div>
-                                    )}
-                                </Link>
-                            );
-                        })}
+                    {/* Filière cards grid */}
+                    {(() => {
+                        const LAND_FILIERE = {
+                            'Genie Informatique':             { icon: 'fas fa-laptop-code', grad: 'linear-gradient(135deg,#1E3A8A,#3B82F6)', color: '#3B82F6', bg: '#eff6ff', desc: "Developpement logiciel, reseaux, cybersecurite et intelligence artificielle." },
+                            'Agriculture et Elevage':         { icon: 'fas fa-seedling',    grad: 'linear-gradient(135deg,#065F46,#10B981)', color: '#10B981', bg: '#ecfdf5', desc: "Production vegetale et animale, agro-alimentaire et gestion durable." },
+                            'Genie Electrique':               { icon: 'fas fa-bolt',         grad: 'linear-gradient(135deg,#92400E,#F59E0B)', color: '#F59E0B', bg: '#fff8ec', desc: "Electronique, electrotechnique, automatisme et energies renouvelables." },
+                            'Genie Civil et Genie Thermique': { icon: 'fas fa-hard-hat',     grad: 'linear-gradient(135deg,#4C1D95,#8B5CF6)', color: '#8B5CF6', bg: '#f5f3ff', desc: "Construction, genie thermique, topographie et infrastructure." },
+                            'Genie Mecanique et Productique': { icon: 'fas fa-cogs',          grad: 'linear-gradient(135deg,#7F1D1D,#E74C3C)', color: '#E74C3C', bg: '#fef2f2', desc: "Fabrication, maintenance et procedes de fabrication industriels." },
+                            'Commerce, Vente et Gestion':     { icon: 'fas fa-chart-line',   grad: 'linear-gradient(135deg,#831843,#EC4899)', color: '#EC4899', bg: '#fdf2f8', desc: "Commerce, comptabilite, marketing digital et management." },
+                            'Art, Tourisme et Hotellerie':    { icon: 'fas fa-utensils',     grad: 'linear-gradient(135deg,#7C3500,#F5A623)', color: '#F5A623', bg: '#fff8ec', desc: "Restauration, hotellerie, tourisme et arts graphiques." },
+                            'Sante':                          { icon: 'fas fa-heartbeat',    grad: 'linear-gradient(135deg,#1B2A4A,#5BBCB4)', color: '#5BBCB4', bg: '#e8f8f5', desc: "Soins infirmiers, sante publique et accompagnement des patients." },
+                        };
+                        const LAND_ORDER = ['Agriculture et Elevage','Genie Informatique','Genie Electrique','Genie Civil et Genie Thermique','Genie Mecanique et Productique','Commerce, Vente et Gestion','Art, Tourisme et Hotellerie','Sante'];
+                        const grouped = {};
+                        for (const cat of categories) {
+                            const k = cat.filiere_name || 'Autres';
+                            if (!grouped[k]) grouped[k] = [];
+                            grouped[k].push(cat);
+                        }
+                        const keys = categories.length === 0
+                            ? LAND_ORDER
+                            : [...LAND_ORDER.filter(f => grouped[f]), ...Object.keys(grouped).filter(f => !LAND_ORDER.includes(f))];
+
+                        return (
+                            <div className="landing-grid4">
+                                {keys.map(key => {
+                                    const fd = LAND_FILIERE[key] || { icon: 'fas fa-folder', grad: 'linear-gradient(135deg,#1B2A4A,#5BBCB4)', color: '#5BBCB4', bg: '#e8f8f5', desc: '' };
+                                    const cats = grouped[key] || [];
+                                    return (
+                                        <Link key={key} to={`/formations?f=${encodeURIComponent(key)}`} style={{ textDecoration: 'none', display: 'block' }}>
+                                            <div style={{ borderRadius: 16, overflow: 'hidden', border: '2px solid transparent', boxShadow: '0 2px 10px rgba(0,0,0,0.06)', transition: 'all .2s', background: 'white' }}
+                                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = `0 12px 28px ${fd.color}22`; e.currentTarget.style.borderColor = fd.color + '70'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)'; e.currentTarget.style.borderColor = 'transparent'; }}
+                                            >
+                                                <div style={{ height: 130, background: fd.grad, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <div style={{ position: 'absolute', top: -25, right: -25, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }}></div>
+                                                    <div style={{ position: 'absolute', bottom: -15, left: -15, width: 75, height: 75, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }}></div>
+                                                    <div style={{ width: 64, height: 64, borderRadius: 18, background: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: 'white' }}>
+                                                        <i className={fd.icon}></i>
+                                                    </div>
+                                                    {cats.length > 0 && (
+                                                        <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(255,255,255,0.92)', borderRadius: 20, padding: '2px 9px', fontSize: 10, fontWeight: 700, color: fd.color }}>
+                                                            {cats.length} spéc.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div style={{ padding: '13px 15px' }}>
+                                                    <h3 style={{ fontSize: 12, fontWeight: 800, color: '#1B2A4A', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 1.3 }}>{key}</h3>
+                                                    <p style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.55, margin: '0 0 8px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{fd.desc}</p>
+                                                    <span style={{ fontSize: 11, fontWeight: 700, color: fd.color, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                        <i className="fas fa-arrow-right" style={{ fontSize: 9 }}></i> Voir les specialites
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+
+                    <div style={{ textAlign: 'center', marginTop: 32 }}>
+                        <Link to="/formations" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 32px', borderRadius: 50, background: 'linear-gradient(135deg,#5BBCB4,#3da89e)', color: 'white', fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: '0 4px 16px rgba(91,188,180,0.3)' }}>
+                            <i className="fas fa-th-large"></i> Voir toutes les filieres
+                        </Link>
                     </div>
                 </div>
             </section>
